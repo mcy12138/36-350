@@ -1,0 +1,295 @@
+---
+title: "HW: Week 13"
+author: "36-350 -- Statistical Computing"
+date: "Week 13 -- Spring 2019"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+Name: Carl Yang
+Andrew ID: yufeiy3
+
+This HW is to be begun in class, but may be finished outside of class at any time prior to Friday, April 19<sup>th</sup> at 5:00 PM. You must submit **your own** lab as a knitted HTML file on the Canvas course page.
+
+<hr>
+
+In this homework, you will be working with National Basketball Association (NBA) player data. In the <tt>Files</tt> hierarchy on Canvas, under <tt>Week_13</tt>, you will find two files: <tt>README</tt> and <tt>player-stats.sql</tt>. The former defines the table columns that appear in the latter. It is provided for completeness; you should not have to refer to it.
+
+<hr>
+
+## Question 1
+*(9 points)*
+
+*Notes 13A (7)*
+
+Download <tt>player-stats.sql</tt> and read it into your <tt>postgres</tt> session. Show that you have changed the working directory inside <tt>postgres</tt> to where your downloaded data are stored. As a final step, display the current list of tables in your database.
+```
+\i  D:/Personal Files/Sophomore Spring/36350/Week 13/player_stats.sql;
+
+postgres=# \cd 'D:/Personal Files/Sophomore Spring/36350/Week 13'
+postgres=# \! cd
+
+D:\Personal Files\Sophomore Spring\36350\Week 13
+
+\i player-stats.sql
+\d
+
+  List of relations
+ Schema |           Name           |   Type   |  Owner
+--------+--------------------------+----------+----------
+ public | more_player_stats        | table    | postgres
+ public | more_player_stats_id_seq | sequence | postgres
+ public | mytable                  | table    | postgres
+ public | player_bios              | table    | postgres
+ public | player_bios_id_seq       | sequence | postgres
+ public | player_stats             | table    | postgres
+ public | player_stats_id_seq      | sequence | postgres
+ public | products                 | table    | postgres
+ public | products_product_id_seq  | sequence | postgres
+ public | rdata                    | table    | postgres
+ public | table1_id_seq            | sequence | postgres
+(11 rows)
+```
+
+## Question 2
+*(9 points)*
+
+*Notes 13A (7)*
+
+Use <tt>\\d</tt> to examine each table individually. Cut and paste below the contraints that were imposed in the construction of each table, if there were any.
+```
+\d more_player_stats
+Check constraints:
+    "more_player_stats_gp_check" CHECK (gp >= 0 AND gp <= 82)
+    
+\d player_bios
+
+\d player_stats
+Check constraints:
+    "player_stats_age_check" CHECK (age >= 1)
+    "player_stats_gp_check" CHECK (gp >= 0 AND gp <= 82)
+    
+```
+
+## Question 3
+*(9 points)*
+
+*Notes 13C (2-3,5)*
+
+Where did Danny Green go to college? Use <tt>SELECT</tt> and <tt>WHERE</tt> to display just that information, nothing more.
+```
+select college from player_bios where firstname = 'Danny' AND lastname = 'Green';
+
+     college
+-----------------
+ North Carolina
+(1 row)
+```
+
+## Question 4
+*(9 points)*
+
+*Notes 13C (2-3)*
+
+Look up the documentation for <tt>postgres</tt>'s <tt>COUNT</tt> function and use it to determine how many unique colleges there are among the 476 players in the database.
+```
+SELECT COUNT(DISTINCT college) FROM player_bios;
+
+count
+-------
+   125
+(1 row)
+```
+
+## Question 5
+*(16 points)*
+
+*Notes 13B (3-5); Notes 13C (2)*
+
+Create a table called <tt>teams</tt>, which will have five columns: an <tt>id</tt> column of type <tt>char(3)</tt> that will be the table's primary key; <tt>location</tt> and <tt>name</tt> columns of type <tt>text</tt> (e.g., Boston for location, Celtics for name); a column showing the <tt>division</tt> in which the team plays (e.g., Atlantic); and a column showing the <tt>conference</tt> the team plays in (e.g., Eastern).
+
+- <tt>division</tt> and <tt>conference</tt> should be of type <tt>DivisionType</tt> and <tt>ConferenceType</tt> respectively; these types should be created as enumerated variables. (See the <tt>postgres</tt> documentation for <tt>CREATE TYPE</tt> and look specifically for the variant that contains the word <tt>ENUM</tt>; essentially, you are defining your own factor variables, with defined levels.)
+
+Use <tt>INSERT</tt> to populate your table. Download <tt>HW_13_Teams.txt</tt> from Canvas, and cut and paste the information in this file into your <tt>INSERT</tt> command. If you are typing in 150 pieces of information, you are doing this wrong!
+
+```
+CREATE TYPE DivisionType AS ENUM ('Atlantic', 'Central', 'Southeast', 'Northwest', 'Pacific', 'Southwest');
+CREATE TYPE ConferenceType AS ENUM ('Eastern', 'Western');
+
+CREATE TABLE teams (
+  id char(3) PRIMARY KEY,
+  location text,
+  name text,
+  division DivisionType,
+  conference ConferenceType
+);
+
+INSERT INTO teams VALUES
+  ('BOS', 'Boston', 'Celtics', 'Atlantic', 'Eastern'),
+('BKN', 'Brooklyn', 'Nets', 'Atlantic', 'Eastern'),
+('NYK', 'New York', 'Knicks', 'Atlantic', 'Eastern'),
+('PHI', 'Philadelphia', '76ers', 'Atlantic', 'Eastern'),
+('TOR', 'Toronto', 'Raptors', 'Atlantic', 'Eastern'),
+('CHI', 'Chicago', 'Bulls', 'Central', 'Eastern'),
+('CLE', 'Cleveland', 'Cavaliers', 'Central', 'Eastern'),
+('DET', 'Detroit', 'Pistons', 'Central', 'Eastern'),
+('IND', 'Indiana', 'Pacers', 'Central', 'Eastern'),
+('MIL', 'Milwaukee', 'Bucks', 'Central', 'Eastern'),
+('ATL', 'Atlanta', 'Hawks', 'Southeast', 'Eastern'),
+('CHA', 'Charlotte', 'Bobcats', 'Southeast', 'Eastern'),
+('MIA', 'Miami', 'Heat', 'Southeast', 'Eastern'),
+('ORL', 'Orlando', 'Magic', 'Southeast', 'Eastern'),
+('WAS', 'Washington', 'Wizards', 'Southeast', 'Eastern'),
+('DEN', 'Denver', 'Nuggets', 'Northwest', 'Western'),
+('MIN', 'Minnesota', 'Timberwolves', 'Northwest', 'Western'),
+('OKC', 'Oklahoma City', 'Thunder', 'Northwest', 'Western'),
+('POR', 'Portland', 'Trail Blazers', 'Northwest', 'Western'),
+('UTA', 'Utah', 'Jazz', 'Northwest', 'Western'),
+('GSW', 'Golden State', 'Warriors', 'Pacific', 'Western'),
+('LAC', 'Los Angeles', 'Clippers', 'Pacific', 'Western'),
+('LAL', 'Los Angeles', 'Lakers', 'Pacific', 'Western'),
+('PHX', 'Phoenix', 'Suns', 'Pacific', 'Western'),
+('SAC', 'Sacramento', 'Kings', 'Pacific', 'Western'),
+('DAL', 'Dallas', 'Mavericks', 'Southwest', 'Western'),
+('HOU', 'Houston', 'Rockets', 'Southwest', 'Western'),
+('MEM', 'Memphis', 'Grizzlies', 'Southwest', 'Western'),
+('NOP', 'New Orleans', 'Hornets', 'Southwest', 'Western'),
+('SAS', 'San Antonio', 'Spurs', 'Southwest', 'Western');
+
+ id  |   location    |     name      | division  | conference
+-----+---------------+---------------+-----------+------------
+ BOS | Boston        | Celtics       | Atlantic  | Eastern
+ BKN | Brooklyn      | Nets          | Atlantic  | Eastern
+ NYK | New York      | Knicks        | Atlantic  | Eastern
+ PHI | Philadelphia  | 76ers         | Atlantic  | Eastern
+ TOR | Toronto       | Raptors       | Atlantic  | Eastern
+```
+
+## Question 6
+*(16 points)*
+
+*Notes 13B (3-6); Notes 13C (2-3)*
+
+None of the available datasets list player positions. In the NBA, there are five commonly acknowledged positions: center, power forward, small forward, shooting guard, and point guard. One can map information in the <tt>more_player_stats</tt> table to these positions via the empirical formula
+
+<tt>prl = per - 67*va/(gp-minutes)</tt>
+
+where ranges of <tt>prl</tt> map directly to positions (see below). Create a new table (of whatever name) that has three columns: <tt>player</tt>, of type <tt>integer</tt> that references <tt>more_player_stats</tt>; <tt>prl</tt>, of type <tt>numeric</tt>; and <tt>position</tt>, of type <tt>text</tt>. (As far as the referencing: look up the documentation for foreign keys. This is an important concept, in that this puts the "relational" into "relational databases".) Use <tt>INSERT</tt> to populate this table: you'd <tt>SELECT</tt> the <tt>id</tt> from <tt>more_player_stats</tt>, and you'd select the equation above. That sounds a bit weird. Let's say table <tt>foo</tt> has three columns, <tt>id</tt>, <tt>x</tt>, and <tt>y</tt>. Now you create <tt>bar</tt>, that has <tt>new_id</tt> and <tt>z</tt>, which is defined as <tt>x/y</tt>. 
+
+- <tt>insert into bar (new_id,z) (select id,round(x/y,1) from foo);</tt>
+
+(Here I decided to round off the quotient. You should do the same with <tt>prl</tt>.) The last thing to do is to <tt>UPDATE</tt> your new table by setting the position on the basis of the following criteria: <tt>'PF'</tt> where <tt>prl</tt> is greater than or equal to 11.3; <tt>'PG'</tt> where <tt>prl</tt> is [10.8,11.3); <tt>'C'</tt> for [10.6,10.8); and <tt>'SG/SF'</tt> for [0,10.6). Display the first 10 rows of your new table (remember: <tt>LIMIT n</tt> displays the first <tt>n</tt> rows).
+```
+CREATE TABLE ps (
+  player INTEGER REFERENCES more_player_stats(id),
+  prl numeric,
+  position text,
+  PRIMARY KEY (player)
+);
+
+INSERT INTO ps (player, prl)
+  (select id , round(per-67*va/(gp*minutes),1) from more_player_stats );
+  
+UPDATE ps
+  SET position = 'PF'
+  WHERE prl>=11.3;
+  
+UPDATE ps
+  SET position = 'PG'
+  WHERE prl>=10.8 AND prl<11.3;
+  
+UPDATE ps
+  SET position = 'C'
+  WHERE prl>=10.6 AND prl<10.8; 
+  
+UPDATE ps
+  SET position = 'SG/SF'
+  WHERE prl>=0 AND prl<10.6;
+  
+
+select * from ps limit 10;
+
+postgres=# select * from ps limit 10;
+ player | prl  | position
+--------+------+----------
+      2 | 11.5 | PF
+      4 | 11.5 | PF
+     12 | 11.5 | PF
+     16 | 11.5 | PF
+     17 | 11.5 | PF
+     18 | 11.5 | PF
+     23 | 11.9 | PF
+     26 | 11.5 | PF
+     30 | 11.5 | PF
+     32 | 11.5 | PF
+(10 rows)
+
+```
+
+## Question 7
+*(16 points)*
+
+*Notes 13B (6-7); Notes 13C (2-3)*
+
+Take the <tt>position</tt> column you've just defined and add it to the <tt>player_bios</tt> table. This is not as simple as doing a <tt>cbind()</tt> in <tt>R</tt>. You'll need to "do" an <tt>ALTER</tt> and an <tt>UPDATE</tt>; in the latter, you'll take advantage of the fact that <tt>player</tt> in your new table references <tt>id</tt> in <tt>more_player_stats</tt>...which means it references <tt>id</tt> in <tt>player_bios</tt> as well. After you are done, display the first five rows of <tt>player_bios</tt>, which should have a brand-new column.
+```
+
+ALTER TABLE player_bios
+  ADD COLUMN position text;
+  
+UPDATE player_bios
+  SET position = ps.position FROM ps
+  WHERE player_bios.id = ps.player;
+  
+select * from player_bios limit 5;
+
+postgres=# select * from player_bios limit 5;
+ id | firstname | lastname | team | age | height | weight |     college     |       country       | draft_year | draft_round | draft_number | gp | pts  | reb | ast | netrtg | oreb_pct | dreb_pct | usg_pct | ts_pct | ast_pct | position
+----+-----------+----------+------+-----+--------+--------+-----------------+---------------------+------------+-------------+--------------+----+------+-----+-----+--------+----------+----------+---------+--------+---------+----------
+  1 | Aaron     | Brooks   | CHI  |  31 | 6-0    |    161 | Oregon          | USA                 | 2007       | 1           | 26           | 69 |  7.1 | 1.5 | 2.6 |   -1.4 |      2.0 |      7.8 |    23.1 |   49.4 |    26.5 | PG
+  2 | Aaron     | Gordon   | ORL  |  20 | 6-9    |    220 | Arizona         | USA                 | 2014       | 1           | 4            | 78 |  9.2 | 6.5 | 1.6 |   -1.3 |      8.9 |     21.0 |    17.1 |   54.1 |    10.3 | PF
+  3 | Aaron     | Harrison | CHA  |  21 | 6-6    |    210 | Kentucky        | USA                 | Undrafted  | Undrafted   | Undrafted    | 21 |  0.9 | 0.7 | 0.1 |    2.2 |      4.7 |     13.3 |    13.8 |   37.1 |     3.3 | SG/SF
+  4 | Adreian   | Payne    | MIN  |  25 | 6-10   |    237 | Michigan State  | USA                 | 2014       | 1           | 15           | 52 |  2.5 | 2.1 | 0.6 |  -10.8 |      4.9 |     22.0 |    18.0 |   42.2 |     9.3 | PF
+  5 | Al        | Horford  | ATL  |  30 | 6-10   |    245 | Florida         | Dominican Republic  | 2007       | 1           | 3            | 82 | 15.2 | 7.3 | 3.2 |    4.9 |      6.2 |     18.0 |    20.6 |   56.5 |    16.5 | C
+```
+
+## Question 8
+*(16 points)*
+
+*Notes 13B (6-7); Notes 13C (2-3)*
+
+The last thing we will do this week is to convert the heights given in <tt>player_bios</tt> from feet-inches format to simply inches. This involves <tt>ALTER</tt>ing the <tt>player_bios</tt> table to add a new column of type <tt>numeric</tt>, then using <tt>UPDATE</tt> to set the values of the height in inches. You may wish to use the following:
+
+<tt>12*split_part(height,'-',1)::integer + split_part(height,'-',2)::integer</tt>
+
+This splits the height string on '-'; the first output is feet, so we multiply that by 12 (and cast to <tt>integer</tt>), and the second output is inches, which is simply cast to <tt>integer</tt>. Finally, use two <tt>ALTER</tt> commands to drop the old height column and to rename your new column 'height'. As you did in the last question, display the first five rows of <tt>player_bios</tt>.
+```
+ALTER TABLE player_bios
+  ADD COLUMN new_height numeric;
+  
+UPDATE player_bios
+  SET new_height = 12*split_part(height,'-',1)::integer + split_part(height,'-',2)::integer;
+  
+ALTER TABLE player_bios
+  DROP COLUMN height;
+  
+ALTER TABLE player_bios
+  RENAME COLUMN new_height TO height;
+  
+select * from player_bios limit 5;
+
+ id | firstname | lastname  | team | age | weight |     college     |       country       | draft_year | draft_round | draft_number | gp | pts  | reb | ast | netrtg | oreb_pct | dreb_pct | usg_pct | ts_pct | ast_pct | position | height
+----+-----------+-----------+------+-----+--------+-----------------+---------------------+------------+-------------+--------------+----+------+-----+-----+--------+----------+----------+---------+--------+---------+----------+--------
+  3 | Aaron     | Harrison  | CHA  |  21 |    210 | Kentucky        | USA                 | Undrafted  | Undrafted   | Undrafted    | 21 |  0.9 | 0.7 | 0.1 |    2.2 |      4.7 |     13.3 |    13.8 |   37.1 |     3.3 | SG/SF    |     78
+  4 | Adreian   | Payne     | MIN  |  25 |    237 | Michigan State  | USA                 | 2014       | 1           | 15           | 52 |  2.5 | 2.1 | 0.6 |  -10.8 |      4.9 |     22.0 |    18.0 |   42.2 |     9.3 | PF       |     82
+  5 | Al        | Horford   | ATL  |  30 |    245 | Florida         | Dominican Republic  | 2007       | 1           | 3            | 82 | 15.2 | 7.3 | 3.2 |    4.9 |      6.2 |     18.0 |    20.6 |   56.5 |    16.5 | SG/SF    |     82
+  6 | Al        | Jefferson | CHA  |  31 |    289 | None            | USA                 | 2004       | 1           | 15           | 47 |   12 | 6.4 | 1.5 |    3.7 |      5.6 |     24.4 |    24.5 |   50.7 |    11.4 | SG/SF    |     82
+  7 | Al-Farouq | Aminu     | POR  |  25 |    215 | Wake Forest     | USA                 | 2010       | 1           | 8            | 82 | 10.2 | 6.1 | 1.7 |    1.5 |      4.5 |     18.5 |    16.9 |   53.3 |     8.7 | SG/SF    |     81
+(5 rows)
+```
+
+
+

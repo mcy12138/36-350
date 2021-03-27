@@ -1,0 +1,106 @@
+---
+title: "Relational Databases and Postgres"
+author: "36-350 -- Statistical Computing"
+date: "Week 13 -- Spring 2019"
+output: 
+  slidy_presentation: 
+    font_adjustment: -1
+---
+
+```{r,echo=FALSE}
+set.seed(101)
+```
+
+Context
+===
+
+- A relational database (or RDB) is a structure for organizing information that one may think of initially as a supercharged version of a data frame. (The word "relational" does not actually indicate that relationships can exist between separate units in your database. It actually has to do with the concept of <i>relational algebra</i>, first proposed [in this paper by E. F. Codd](http://www.seas.upenn.edu/~zives/03f/cis550/codd.pdf).)
+
+- In an RDB, the basic unit of data storage is the *table* (or *relation* or *schema*). Rows are rows, but sometimes dubbed *tuples* or *records*, and columns are sometimes dubbed *attributes*. (*Fields* are specific cells within a given row.)
+
+- RDBs come with performance guarantees, dubbed [ACID](http://www.orafaq.com/wiki/ACID).
+
+- When designing an RDB, a key goal is to eliminate redundancy by having many tables that are linked via <i>foreign keys</i>. For instance, if you want to construct an RDB having information about movies, actors, and studios (where, e.g., a movie is produced by a studio and stars an actor), it makes the most sense to split the information cleanly between interlinked tables.
+
+- RDBs are commonly manipulated and queried using SQL: Structured Query Language.
+
+Postgres
+===
+
+- There are many implementations of SQL (SEE-kwule): Oracle, MySQL, SQLite, etc.
+
+- In this class, we will make use of [PostgreSQL](https://www.postgresql.org/), or more simply "Postgres." It is open source, with Mac, Windows, and Linux versions available. You should download and install it!
+
+- Postgres will set up a server on your machine. When you install Postgres, a superuser account "postgres" will be set up, with a password specified by you. Make this a good one, i.e., not just "postgres." (That's because hackers like to look for lazily set up postgres accounts.)
+
+- When you start up postgres for the first time, you will see something like this (on a Mac):
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/postgres.png){width=500px}</center>
+
+- If you are the only user on your machine, then it is fine to play around with SQL from within the postgres account. More generally, the postgres admin would apply the <tt>createuser</tt> command from within postgres to carve out space for you to play in.
+
+Preliminary Concepts I: Tables
+===
+
+We note the following about tables:
+
+- <b>each table in a database represents a single entity</b>;
+
+- each row of a table represents <b>one instance</b> of that entity;
+
+- each column of a table must have a <b>name</b>;
+
+- each column of a table must have a <b>pre-specified data type</b>; and
+
+- the columns in each row must satisfy any <b>constraints</b> specified with the table is created.
+
+Preliminary Concepts II: Data Types
+===
+
+As stated on the last slide, the type of each data must be specified as a table is created! In contrast to <tt>R</tt>, <tt>Postgres</tt> offers a wide variety of (sometimes very specific) data types, such as
+
+- <tt>numeric</tt>: arbitrary precision numbers
+
+- <tt>serial</tt>: auto-incrementing integer
+
+- <tt>text</tt>: variable, unlimited-length character string
+
+- <tt>money</tt>: currency values
+
+- <tt>date</tt>: a specific day
+
+- <tt>timestamp</tt>: a specific moment, day and time (to the nanosecond)
+
+- <tt>interval</tt>: a time interval
+
+- <tt>boolean</tt>: true or false
+
+See [the data type documentation page](https://www.postgresql.org/docs/10/static/datatype.html) for more details. (And there are many.)
+
+Preliminary Concepts III: Keys
+===
+
+A <b>unique key</b> may be defined as one (or more) columns whose collective values uniquely identify each row of a table. 
+
+If a table has two or more unique keys, it is customary to define one of them as the <b>primary key</b>.
+
+When we link tables, a <b>foreign key</b> in one table is a reference to the primary key in the other.
+
+As is the case with many concepts, the concept of keys will make more sense once we start going through examples...
+
+Preliminary Concepts IV: Finding Your Way Around
+===
+
+I'm in! How do I...
+
+- get help? '\\h' for general listing, '\\h <command>' for specific command (also: Google, as always)
+
+- list the tables I have in my database? '\\d'
+
+- read input from a file? '\\i'
+
+- change directory? '\\cd'
+
+- get the heck out? '\\q'
+
+

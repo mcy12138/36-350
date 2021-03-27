@@ -1,0 +1,246 @@
+---
+title: "Lab: Week 13"
+author: "36-350 -- Statistical Computing"
+date: "Week 13 -- Spring 2019"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+Name: Carl Yang
+Andrew ID: yufeiy3
+
+This lab is to be begun in class, but may be finished outside of class at any time prior to Thursday, April 18<sup>th</sup> at 5:00 PM. You must submit **your own** lab as a knitted HTML file on the Canvas course page.
+
+This week's lab is a little different. Here you will be working with <tt>SQL</tt>, specifically with the variant <tt>postgres</tt>. You will do your work "remotely" in a <tt>postgres</tt> terminal and cut-and-paste your answers into plain code blocks below:
+```
+This is a plain code block. Note the lack of a {r} above.
+```
+Cut-and-paste both your input command and the output. If the output has many rows, it is sufficient to cut-and-paste the first five or so.
+
+**ALSO NOTE** that pointers to slides are given below. However, that does not mean that all the information you need is on a particular slide; think of these pointers as pointers to where you should *start* reading to determine how to answer a question. You might perhaps have to add on to this by looking at, e.g., <tt>postgres</tt> documentation online.
+
+<hr>
+
+## Question 1
+*(8 points)*
+
+*Notes 13A (4-6); Notes 13B (3-4)*
+
+Create a table dubbed <tt>rdata</tt> that has five columns: <tt>id</tt> (type <tt>serial primary key</tt>), <tt>a</tt> and <tt>b</tt> (both <tt>text</tt>), <tt>moment</tt> (<tt>date</tt>), and <tt>x</tt> (<tt>real</tt>).
+```
+CREATE TABLE rdata (
+  id serial PRIMARY KEY,
+  a text,
+  b text,
+  moment date,
+  x real
+);
+
+postgres=# select * from rdata;
+ id | a | b | moment | x
+----+---+---+--------+---
+(0 rows)
+
+```
+
+## Question 2
+*(8 points)*
+
+*Notes 13C (2-3)*
+
+Use a <tt>SELECT</tt> command with the <tt>generate_series()</tt> function to display the sequence 1 to 100. (Again, you just need to display the first few lines of output. You can force this by having, e.g., <tt>limit 5</tt> as the last part of your command.)
+```
+postgres=# SELECT * FROM generate_series(1,100) limit 5;
+ generate_series
+-----------------
+               1
+               2
+               3
+               4
+               5
+(5 rows)
+```
+
+## Question 3
+*(8 points)*
+
+*Notes 13C (2-3)*
+
+Use a <tt>SELECT</tt> command to create (and display!) a random text string. One approach is to apply the <tt>md5()</tt> function to a random number that is cast to text. The <tt>random()</tt> function outputs a random number between 0 and 1. Convert it to text via <tt>random()::text</tt> and then apply the <tt>md5()</tt> function to create the random text string.
+```
+postgres=# SELECT * FROM md5(random()::text);
+               md5
+----------------------------------
+ b3d315c2e8a5ff2ec312cbc931d9fb82
+(1 row)
+
+```
+
+## Question 4
+*(8 points)*
+
+*Notes 13C (2-3)*
+
+Use a <tt>SELECT</tt> command to choose a random element from a fixed array of strings. One can obtain a fixed text array by writing out a strong for a literal postgres array (like <tt>'{X,Y,Z}'</tt>) and then telling postgres to cast this to text: <tt>'{X,Y,Z}'::text[]</tt>. One can randomly select an index in the resulting text array by combining the <tt>ceil()</tt> (i.e., ceiling) amd <tt>random()</tt> functions to make a selection. (Multiply the output of <tt>random()</tt> by the number of elements in the text array, then determine the ceiling: this yields, in this case, 1, 2, or 3.) (Note: <tt>('{X,Y,Z}'::text[])[1]</tt> would return <tt>'X'</tt>: like <tt>R</tt>, <tt>SQL</tt> is 1-indexed.)
+```
+
+postgres=# SELECT ('{X,Y,Z}'::text[])[ceil(random()*3)];
+ text
+------
+ X
+(1 row)
+
+```
+
+## Question 5
+*(8 points)*
+
+*Notes 13C (2-3)*
+
+<tt>SELECT</tt> a random date in 2019. You can do this by adding a random integer to the <tt>date</tt> <tt>'2019-01-01'</tt>. For instance, the expression <tt>select '2019-01-01'::date + 7 as random_date;</tt> will output January 8th. Here, replace the 7 with an expression that gives a random integer, converting a non-integer numeric type to an integer by appending <tt>::integer</tt>.
+```
+SELECT day + ((random()*365)::integer) FROM (SELECT '2019-01-01'::date as day) as random_date;
+
+------------
+ 2019-03-06
+(1 row)
+```
+
+## Question 6
+*(12 points)*
+
+*Notes 13B (5)*
+
+Use <tt>INSERT</tt> to populate the <tt>rdata</tt> table with 101 rows, where the <tt>id</tt> goes from 1 to 100, <tt>a</tt> is random text, <tt>b</tt> is a random choice from a set of strings (at least three in size), <tt>moment</tt> contains random days in 2019, and <tt>x</tt> contains random real numbers in some range. (Hint: you will use the form of <tt>INSERT</tt> that utilizes <tt>SELECT</tt>.)
+```
+INSERT INTO rdata 
+  (select generate_series(1,100) as id, md5(random()::text) as a, ('{X,Y,Z,W,V}'::text[])[ceil(random()*3)] as b, 
+  (((random()*365)::integer) +'2019-01-01'::date) as moment , random()*100 as x);
+  
+ id  |                a                 | b |   moment   |    x
+-----+----------------------------------+---+------------+----------
+   1 | a2eac1c3bd250ebd6bb6031441df8ce5 | X | 2019-05-28 |  45.3943
+   2 | a4da42af4527f66ba09be8ec395de1aa | Y | 2019-03-08 |     76.8
+   3 | 6cd986623b854edf09e6ccb5c4285bd1 | Y | 2019-08-25 |  70.2969
+   4 | 33268315cf21138509ca9bb9efe45f5b | Y | 2019-03-28 |  90.2573
+   5 | 3db9e014065d5819da3ddd1b8edec366 | Y | 2019-07-22 |  72.5316
+
+```
+
+## Question 7
+*(8 points)*
+
+*Notes 13C (2-3,5)*
+
+Use <tt>SELECT</tt> to display rows of the table for which <tt>b</tt> is equal to a particular element from your set of strings. Limit the length of your output to five rows.
+```
+select * from rdata where b='Y' limit 5;
+
+ id |                a                 | b |   moment   |    x
+----+----------------------------------+---+------------+---------
+  2 | a4da42af4527f66ba09be8ec395de1aa | Y | 2019-03-08 |    76.8
+  3 | 6cd986623b854edf09e6ccb5c4285bd1 | Y | 2019-08-25 | 70.2969
+  4 | 33268315cf21138509ca9bb9efe45f5b | Y | 2019-03-28 | 90.2573
+  5 | 3db9e014065d5819da3ddd1b8edec366 | Y | 2019-07-22 | 72.5316
+  7 | 8320f9ab015edf461a39c1be93b5f884 | Y | 2019-11-05 | 36.5822
+(5 rows)
+```
+
+## Question 8
+*(8 points)*
+
+*Notes 13C (2-3,5)*
+
+The <tt>~*</tt> or <tt>ilike</tt> operators in postgres are used for pattern matching in text. The two operators use slightly different ways to specify the patterns. Use <tt>SELECT</tt> with either to display the rows for which <tt>a</tt> matches a specific pattern that is at least four characters long and contains a mixture of numbers and letters. Note that you can use regexes here!
+```
+SELECT * FROM rdata WHERE a ilike '6cd9%';
+
+ id |                a                 | b |   moment   |    x
+----+----------------------------------+---+------------+---------
+  3 | 6cd986623b854edf09e6ccb5c4285bd1 | Y | 2019-08-25 | 70.2969
+(1 row)
+
+```
+
+## Question 9
+*(8 points)*
+
+*Notes 13C (2-3,5)*
+
+Use <tt>SELECT</tt> with the <tt>overlaps</tt> operator to find all rows whose <tt>moment</tt> lies in the month of November. The <tt>overlaps</tt> operator looks like this
+
+<tt>(date1,date2) overlaps (date3,date4)</tt>
+
+where the pairs of dates represent intervals of time. (The two dates in a pair can be equal. Also, remember that one can use <tt>::date</tt> to cast a string to a <tt>date</tt> variable.
+```
+SELECT * FROM rdata as _ WHERE (moment,moment) overlaps ('2019-11-01'::date,'2019-11-30'::date);
+
+```
+
+## Question 10
+*(8 points)*
+
+*Notes 13B (6); Notes 13C (5)*
+
+Use <tt>UPDATE</tt> to set the value of <tt>b</tt> to a fixed choice for all rows that are divisible by 3 and by 5. (The modulus operator is <tt>%</tt>.)
+```
+UPDATE rdata
+  SET b = 'YYY'
+  WHERE id%3=0 OR id%5=0;
+  
+ id  |                a                 |  b  |   moment   |    x
+-----+----------------------------------+-----+------------+----------
+   1 | a2eac1c3bd250ebd6bb6031441df8ce5 | X   | 2019-05-28 |  45.3943
+   2 | a4da42af4527f66ba09be8ec395de1aa | Y   | 2019-03-08 |     76.8
+   4 | 33268315cf21138509ca9bb9efe45f5b | Y   | 2019-03-28 |  90.2573
+   7 | 8320f9ab015edf461a39c1be93b5f884 | Y   | 2019-11-05 |  36.5822
+   8 | 08c9865f44245d6d7171509838683e31 | Z   | 2019-08-28 |  75.0677
+   
+  
+```
+
+## Question 11
+*(8 points)*
+
+*Notes 13B (8); Notes 13C (5)*
+
+Use <tt>DELETE</tt> to remove all rows for which <tt>id</tt> is even and greater than 2.
+```
+DELETE FROM rdata
+  WHERE id%2=0 AND id>2;
+
+DELETE 49
+
+ id |                a                 | b |   moment   |    x
+----+----------------------------------+---+------------+---------
+  1 | a2eac1c3bd250ebd6bb6031441df8ce5 | X | 2019-05-28 | 45.3943
+  2 | a4da42af4527f66ba09be8ec395de1aa | Y | 2019-03-08 |    76.8
+  7 | 8320f9ab015edf461a39c1be93b5f884 | Y | 2019-11-05 | 36.5822
+ 11 | 33efe54887289376346b927e503911da | Z | 2019-02-24 | 82.9087
+ 13 | 0c4baa062ca5377c24238bf2ac9247a6 | X | 2019-07-29 | 8.96543
+```
+
+## Question 12
+*(8 points)*
+
+*Notes 13B (8); Notes 13C (5)*
+
+Use a few more <tt>DELETE</tt>'s (four overall) to remove all rows where <tt>id</tt> is not prime. Then display <tt>id</tt>.
+```
+DELETE FROM rdata
+  WHERE id>2 AND (id%3=0 OR id%5=0 OR id%11=0 OR id%13=0);
+  
+select id from rdata;
+  
+id
+----
+  1
+  2
+  7
+ 23
+ 29
+```
+

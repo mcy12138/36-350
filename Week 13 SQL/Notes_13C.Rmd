@@ -1,0 +1,86 @@
+---
+title: "Database Querying via SELECT"
+author: "36-350 -- Statistical Computing"
+date: "Week 13 -- Spring 2019"
+output: 
+  slidy_presentation: 
+    font_adjustment: -1
+---
+
+```{r,echo=FALSE}
+set.seed(101)
+```
+
+SELECT
+===
+
+The <tt>SELECT</tt> command is how we query a database. It is a versatile and powerful command!
+
+A shortened definition that highlights elements of the syntax that are important in the context of this class is:
+```
+SELECT
+  [*]
+  [<expression>]
+  [FROM <expression>]
+  [WHERE <condition>]
+  [GROUP BY <expression>]
+  [HAVING <condition>]
+  [ORDER BY <expression>];
+```
+
+As we explain these options (<tt>FROM</tt> and <tt>WHERE</tt> this week, the rest next time), keep the following in mind:
+
+- You can pass functions into <tt>SELECT</tt>. (See below.)
+
+- <tt>SELECT</tt> constructs virtual tables, and its displayed output is a table. (Everything is a table in <tt>Postgres</tt> and in <tt>SQL</tt> in general.)
+```
+SELECT pi();
+```
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_pi.png){width=200px}</center>
+
+SELECT
+===
+
+More to keep in mind:
+
+- The functions you pass to <tt>SELECT</tt> can generate vectors, which populate columns in the virtual table(s) it constructs:
+```
+SELECT 2*x as evens FROM generate_series(1,2) as x;
+```
+Be at one with the parser! <tt>Postgres</tt> will scan this command and parse it, and will generate tables. Here:
+- <tt>generate_series(1,2)</tt> will be run first, and it will construct a virtual table with an column named <tt>x</tt> (the <tt>as</tt> sets the column name) and two entries: 1 and 2. 
+- then, another table will be constructed based on the first one, with one column named <tt>evens</tt> and entries 2 and 4. This final table is what will be displayed as output.
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_evens.png){width=150px}</center>
+
+SELECT
+===
+
+- One can nest calls to <tt>SELECT</tt>:
+```
+SELECT min(r) as minimum, avg(r) as mean, max(r) as maximum FROM 
+  (SELECT random() as r FROM generate_series(1,10000)) as _;
+```
+This generates an unnamed (see the "_") virtual table of 10000 draws from a Uniform(0,1) distribution, from which the minimum, average, and maximum values are selected. The final table has one entry for each of three columns.
+
+WHERE
+===
+
+We can select the rows to view or act on by giving logical conditions in a <tt>WHERE</tt> clause:
+```
+SELECT r FROM (SELECT random() as r FROM generate_series(1,10000)) as _ 
+  WHERE r > 0.98 and r < 0.99;
+SELECT * FROM (SELECT random() as r, random() as s FROM generate_series(1,10000)) as _ 
+  WHERE r > 0.99 or s < 0.01;
+SELECT id from (SELECT generate_series(1,101) as id) as _ 
+  WHERE id = 50;
+SELECT id from 
+  (SELECT generate_series(1,10) as id,
+   ('{A,B,C}'::text[])[ceil(random()*3)] as letter) as _ 
+  WHERE letter = 'C';
+```
+
+In the second example, we output all columns (in this case, <tt>r</tt> and <tt>s</tt>) via the use of "*".
+
+The fourth example is a bit more complex: by using <tt>generate_series()</tt>, we can generate a particular number of rows (and not just 1), and in each row, a letter A, B, or C is selected at random. The letters are cast to a text array type, <tt>3*random()</tt> generates random numbers from 0 to 3, and <tt>ceil()</tt> rounds the random numbers up to the next integer (meaning 1, 2, or 3). If 1 is selected, then the letter A is sampled, etc. Finally, we determine which rows had the letter C.
+

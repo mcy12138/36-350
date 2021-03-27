@@ -1,0 +1,179 @@
+---
+title: "Working With CRUD"
+author: "36-350 -- Statistical Computing"
+date: "Week 13 -- Spring 2019"
+output: 
+  slidy_presentation: 
+    font_adjustment: -1
+---
+
+```{r,echo=FALSE}
+set.seed(101)
+```
+
+But I Don't Like CRUD
+===
+
+No, no. CRUD is an acronym that stands for four basic table operations:
+
+- <b>C</b>reate (meaning for us: <tt>CREATE</tt> and <tt>INSERT</tt>)
+
+- <b>R</b>ead (meaning <tt>SELECT</tt>)
+
+- <b>U</b>pdate (meaning <tt>UPDATE</tt> and <tt>ALTER TABLE</tt>)
+
+- <b>D</b>elete (meaning <tt>DROP TABLE</tt>, <tt>DELETE FROM</tt>, and <tt>ALTER TABLE</tt>)
+
+We will discuss the C, the U, and the D in this notes set, and the R in the next one...
+
+CREATE and INSERT
+===
+
+Assuming you do not read in a table from a previously existing file via use of '\\i', you'll need to create and populate a table yourself.
+
+The command is
+```
+CREATE TABLE <name> 
+(<column 1> <type 1> <constraint 1>, ... , <multi-column constraint(s)>);
+```
+
+(Note the semi-colon at the end. This trips up <i>everyone</i> at one time or another.)
+
+Example (which you can cut and paste into your own Postgres session from the Rmd file):
+```
+CREATE TABLE products (
+  product_id serial PRIMARY KEY,
+  label text UNIQUE NOT NULL CHECK (char_length(label) > 0),
+  price money CHECK (price >= 0::money),
+  discount money DEFAULT 0.0 CHECK (discount >= 0::money),
+  inventory integer DEFAULT 0 CHECK (inventory >= 0),
+  CHECK (price > discount)
+);
+```
+
+CREATE and INSERT
+===
+
+```
+CREATE TABLE products (
+  product_id serial PRIMARY KEY,
+  label text UNIQUE NOT NULL CHECK (char_length(label) > 0),
+  price money CHECK (price >= 0::money),
+  discount money DEFAULT 0::money CHECK (discount >= 0::money),
+  inventory integer DEFAULT 0 CHECK (inventory >= 0),
+  CHECK (price > discount)
+);
+```
+
+There are many things to note here:
+
+- First, you can see that constraints are given in the form
+```
+CHECK (<relationship>)
+```
+- Second, after specifying the type (<tt>text</tt>, <tt>money</tt>, etc.), you can specify default values for columns, that values are to be unique (no two rows can have the same value), and that null values are not allowed.
+
+- Third, <tt>::</tt> is used for casting into types (e.g., <tt>0::money</tt>).
+
+- Last, we specify one column to be a sequential series of integers (via <tt>serial</tt>) and specify these integers to be the <tt>primary key</tt>.
+
+(Remember to supplement the descriptions given here (and below) with appropriate Googling and by looking at the Postgres on-line documentation.)
+
+CREATE and INSERT
+===
+
+To populate the table one row at a time:
+```
+INSERT INTO <name> (<column i>,<column j>,...) VALUES
+  (<value i>,<value j>,...),
+  ...
+  (<value i>,<value j>,...);
+```
+
+If you leave out the <tt>(\<column i\>,\<column j\>,...)</tt> part, then <tt>Postgres</tt> will simply assume that you will be entering values for all columns (in order). (If you don't intend to enter data for all columns, be sure that the left-out columns have default values, if appropriate.) For instance:
+
+```
+INSERT INTO products VALUES
+  (1,'kirk action figure',50,10,13),
+  (2,'spock action figure',40,5,22);
+```
+
+```
+INSERT INTO products (product_id,label,inventory) VALUES
+  (3,'Scotty Dog',950);
+```
+
+To look at your table, do
+```
+SELECT * FROM products;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_insert.png){width=500px}</center>
+
+(We'll come back to <tt>SELECT</tt> later.)
+
+UPDATE and ALTER TABLE
+===
+
+The <tt>UPDATE</tt> command allows us to modify values in table cells.
+```
+UPDATE <name>
+   SET <column1> = <new value 1>,
+   SET <column2> = <new value 2>,
+   ...
+   WHERE <row condition>;
+```
+
+Think of the <tt>WHERE <row condition></tt> as being like a call to the <tt>which()</tt> function in <tt>R</tt>: in it, you set a range of values for one of the table columns, and thereby select which rows to update.
+```
+UPDATE products
+  SET discount = 8::money
+  WHERE price >= 40::money;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_update.png){width=500px}</center>
+
+(Note what happened: the two rows that were updated moved down! The <tt>product_id</tt> need not be displayed in numeric order, despite being of type <tt>SERIAL</tt>.)
+
+UPDATE and ALTER TABLE
+===
+
+If you wish to add or delete an entire column, or rename an column, or change constraints, etc., you would "update" your table using <tt>ALTER TABLE</tt>:
+```
+ALTER TABLE <name>
+  <action>;
+```
+There are too many possible to provide a clean shorthand for them all. Best just to give a few examples:
+```
+ALTER TABLE products
+  ADD COLUMN rating NUMERIC CHECK (rating >= 0.0) CHECK (rating <= 5.0);
+  
+ALTER TABLE products
+  ALTER COLUMN rating SET DEFAULT 4.0;
+  
+ALTER TABLE products
+  RENAME COLUMN label TO type;
+```
+
+Etc.
+
+DROP TABLE, DELETE FROM, and ALTER TABLE
+===
+
+To remove an column:
+```
+ALTER TABLE <name>
+  DROP COLUMN <column>;
+```
+
+To remove one or more entries from a table:
+```
+DELETE FROM <name>
+  WHERE <condition>;
+```
+(Be careful! If you leave out the <tt>WHERE</tt> clause, then <b>all</b> entries are deleted.)
+
+To remove a table in its entirety:
+```
+DROP TABLE <name>;
+```

@@ -1,0 +1,434 @@
+---
+title: "Final R Project"
+author: "36-350 -- Statistical Computing"
+date: "Week 12 -- Spring 2019"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+Name: Carl Yang
+Andrew ID: yufeiy3
+
+You may turn in this final project at any time prior to Wednesday, April 10<sup>th</sup> at 5:00 PM. You must submit **your own** project as a knitted HTML file on the Canvas course page.
+
+There are 200 points possible for this assignment.
+
+<hr>
+
+The dataset that you will examine is <i>General Catalogue of Variable Stars</i>, version 5.1, hereafter dubbed the GCVS. A full description of the GCVS is given on <a href="http://www.sai.msu.su/gcvs/gcvs/gcvs5/htm/">this web page</a>. You may need to refer to this page often: it contains an explanation of how the data are formatted and what information is in the various columns. Note that the formatting is not like what you've seen before; this sort of formatting is dubbed "fixed-width formatting" because each piece of information spans a particular set of character positions (1 = first character on a given line, 2 = second character, etc.). 
+
+<hr>
+
+All stars are variable to some degree, even the Sun, but some truly have large and periodic variations in their brightnesses. You can Google some of the common types: Cepheids, RR Lyraes, Miras, etc. The GCVS has information on 52,011 of these stars: where they are in the sky (both by constellation and by coordinate), their maximum brightnesses, their minimum brightnesses, their spectra, their proper motion (how much their coordinates change per year), etc. You are a researcher who wants to work with these data. Below you will perform a series of (largely academic!) exercises that will draw upon most everything you've learned thus far in the course.
+
+**To be clear**: there is generally not a unique way of going about answering each question below. For instance, you may want to use base <tt>R</tt> sometimes, and <tt>tidyverse</tt> functions at other times. In the end, *I don't particularly care how you go about answering the questions, so long as you answer them correctly*. (Some of you may very well create more elegant solutions than what I have in the solution set. And that's good.) 
+
+<hr>
+
+```{r echo=FALSE}
+library(tidyverse)
+```
+
+<hr>
+
+## Question 1
+
+*(10 points)*
+
+Download "gcvs5.txt" from the Canvas site, under "Files/MATERIALS/Week_11+12: R Project".
+
+Examine the data in a text file viewer. Note that "|" symbols are used to delimit major fields. Determine which rows, if any, are complete, i.e., have data between all the "|" symbols. (You can do this is a "quick-and-dirty" fashion, i.e., you don't need to ensure that each column is read in as its correct type, because you are really looking for <tt>NA</tt>s.) Note: you may get a series of warnings due to the fact that there are "|" symbols at the end of every line, leading <tt>R</tt> to think that there's supposed to be one more column of data to the right of those symbols. You can safely ignore these warnings. (Note: if your read-in object is a tibble, cast it to a data frame.)
+
+You will have to give names to your fields. Use the following:
+
+- <tt>id, name, coords, type, mag.max, mag.minI, mag.minII, filter, epoch.I, year, period, M.minus.m, spectrum, references, other.name, proper.motion, epoch.II, flag, identifier, new.type, name.repeat</tt>
+
+(Yeah, the last field appears to have the same information as the <tt>name</tt> field.)
+
+Note that there is no need to worry about data types here so long as the data get read in. For instance, if every column is a character string, that's OK...we can convert types on the fly later. Given all the extraneous symbols in the fields, character strings are in fact best for now.
+```{r}
+colNames = c("id", "name", "coords", "type", "mag.max", "mag.minI", "mag.minII", "filter", "epoch.I", "year", "period", "M.minus.m", "spectrum", "references", "other.name", "proper.motion", "epoch.II", "flag", "identifier", "new.type", "name.repeat")
+
+data = read_delim("gcvs5.txt",delim="|", col_names = colNames, skip = 2) #%>% data.frame()
+#nrow(data)
+sum(complete.cases(data))
+head(data)
+```
+```
+0 rows are complete.
+```
+
+## Question 2
+
+*(20 points)*
+
+Extract the byte-by-byte description table that is included on the documentation webpage that we link to above, using <tt>rvest</tt> library functions. Given that table, determine which table rows correspond to which data field. For instance, the first three rows of the table correspond to the first field ("id"). (To lessen the amount of coding, the byte boundaries between the fields are provided below, i.e., the locations along each row where the "|" delimiters are located. In real life you'd determine this on-the-fly from the table.) As proof that your mapping works, output *only* the rows corresponding to the 3rd and 13th data fields (the "coords" and the "spectrum" fields). (Note: other than the boundaries vector below, there should be *no other hard-coded vectors*! You should have, e.g., a <tt>for</tt> loop over table rows that contains code that compares the byte ranges for each row with the provided boundaries. There may be some regex'ing and some casting involved here.)
+```{r}
+library(rvest)
+boundaries = c(8,20,41,52,62,75,88,91,104,110,131,137,155,167,179,193,202,204,214,225,236)
+
+t = read_html("http://www.sai.msu.su/gcvs/gcvs/gcvs5/htm/") %>% html_nodes("table") %>% html_table(., fill = TRUE) %>% .[[4]]
+  
+n = nrow(t)
+field = rep(NA, n)
+for (i in 1:n) {
+  #record for each row which field it corresponds to
+  reg.exp = regexpr("[0-9]+", t[i,]$Bytes, useBytes = TRUE)
+  byte = regmatches(t[i,]$Bytes, reg.exp) %>% as.numeric()
+  field[i] = findInterval(byte, boundaries) + 1
+}
+
+t[which(field == 3 | field == 13), ]
+
+```
+
+## Question 3
+
+*(5 points)*
+
+Which major field has the least amount of data? What is the number of data in this major field? 
+```{r}
+my.fun = function(x) {sum(is.na(x))}
+res = apply(data, MARGIN = 2, my.fun)
+names(which.max(res))
+nrow(data) - max(res)
+
+```
+```
+Other.name has the least amount of data. It has 261 data in the field.
+```
+
+## Question 4
+
+*(10 points)*
+
+Determine whether there are any <tt>name</tt>s that differ from <tt>name.repeat</tt>s, display your results, and then remove the <tt>name.repeat</tt> field. (Note: you are only interested in the first nine bytes of each field!) Also remove the <tt>id</tt> field and any field with fewer than 13,000 entries (but keep the <tt>year</tt> field...we need this later). Do this succintly, in one line. (Hint: Google how to remove multiple columns at once if you need to...)
+```{r}
+n = nrow(data)
+sum(substr(data$name, 1, 9) != substr(data$name.repeat, 1, 9))
+entries = n - res
+df = data %>% select(which(entries >= 13000), "year", -"name.repeat", -"id")
+head(df)
+```
+
+## Question 5
+
+*(5 points)*
+
+List the abbreviations for the 88 constellations in the catalog that have variable stars. If you look at the file, you'll see on the first line of data the string "And", meaning "Andromeda". Note what field this is in, and where the three letters are in that field. In the end, display all 88 unique three-letter abbreviations.
+```{r}
+abb = unique(substr(df$name, nchar(df$name)-4, nchar(df$name)-2))
+abb
+```
+
+## Question 6
+
+*(5 points)*
+
+Display how many variable stars are in each constellation. Which one has the most? Which one has the least?
+```{r}
+freq=table(substr(data$name, nchar(data$name)-4, nchar(data$name)-2))
+names(which.max(freq))
+names(which.min(freq))
+```
+```
+Sgr has the most. Cae has the least.
+```
+
+## Question 7
+
+*(15 points)*
+
+The third major field (<tt>coords</tt>) contains the sky coordinates for each variable star. The first number is the right ascension, or RA; it is a celestial longitude and is given, for historical reasons, as "hours" (0 to 23, first two digits), "minutes" (0 to 59, second set of two digits), and "seconds" (0 to 59.99, the last five characters, which includes a decimal point).
+
+Code an algorithm for convert the RA values into decimal degrees. Use the following information:
+
+- An hour spans 15 degrees (hour 0 is [0,15) degrees, hour 1 is [15,30), etc.)
+- A minute spans 1/60th of an hour (i.e., a minute is 0.25 degrees)
+- A second spans 1/60th of a minute (i.e., a second is 0.25/60 degrees)
+
+(Note that there are <tt>NA</tt>'s in this field, so you want to get rid of them first.)
+
+Conclude by making a circular barchart of your data, using <tt>ggplot()</tt> and bins of width 15<sup>o</sup>. (I figured out how to do this pretty rapidly by Googling.) Note that you can use, e.g., <tt>hist()</tt> to create the data that you need (the number of stars in some number of RA bins). If you use <tt>hist()</tt>, then specify the breaks (and <tt>plot=FALSE</tt>) and capture the output; note that you will have one more break than you need, so strip that last break point off. You would also need to shift the values of break by half a bin width prior to plotting so that the bins are correctly centered on the circular barchart. If you successfully create a circular barchart, then you will see that the histogram peaks around 270<sup>o</sup>: this is the direction of the center of the Milky Way. (Sagitarrius y'all.)
+```{r}
+f = function(x) 
+{
+  hour = as.numeric(substr(x,1,2))*15
+  minute = as.numeric(substr(x,3,4))*0.25
+  sec = as.numeric(substr(x,5,9))*0.25/60
+  return(hour+minute+sec)
+}
+x = substr(data$coords,1,9) 
+degree = sapply(x[complete.cases(x)], FUN = f)
+#head(degree)
+degree = as.numeric(degree)
+#hist(degree)
+
+library(ggplot2)
+
+
+
+x = seq(0, 360, by = 15)
+hist_res = hist(degree, breaks = x, plot=FALSE)
+hist_out = data.frame(breaks = x[1:24], counts = hist_res$counts)
+ggplot(hist_out, aes(x = breaks, y = counts)) +
+  geom_bar(stat="identity", fill = "#0000CC") +
+  coord_polar(start = 0) + scale_x_continuous(breaks = seq(0, 360, by=15))
+
+```
+
+
+
+## Question 8
+
+*(15 points)*
+
+Now extract the second sky coordinate, the so-called declination, or celestial latitude. The first symbol ("+" or "-") denotes whether the star is above or below the celestial equator. The next two numbers are degrees (not hours), the two numbers after that are minutes (each being 1/60th of a degree), and the four characters after that (including the decimal point) are seconds (each being 1/3600th of a degree.) Histogram your final result with proper labeling (and turn off the default title!), and explain why the histogram looks the way it does.
+```{r}
+f = function(x) 
+{
+  sign = substr(x,11,11)
+  deg = as.numeric(substr(x,12,13))
+  minute = as.numeric(substr(x,14,15))*1/60
+  sec = as.numeric(substr(x,16,19))*1/3600
+  res = 0
+  if (sign == "+") res = deg+minute+sec
+  else res = -1*(deg+minute+sec)
+  return(res)
+}
+
+
+declination = sapply(data$coords[complete.cases(data$coords)], FUN = f)
+#head(declination)
+hist(as.numeric(declination), xlab = "Declination", main = "Histogram of declination")
+```
+```
+
+The height of the bar represents the area of sky while declineation is an approximation of latitude. We can see that the histogram is approximately unimodal and has modes a bit less than the celestial equator. It is also right skewed with mean around celestial equator.
+```
+
+## Question 9
+
+*(10 points)*
+
+What is the mean of the "Max"imum magnitudes in the <tt>mag.max</tt> field, for each constellation? (This is really a confusing misnomer: the display values are the *smallest* magnitudes observed for each star...small magnitudes correspond to *brighter* stars.) Display your results in ascending order. You might want to make use of the constellation abbreviations that you extracted above; this is a convenient factor variable to use for splitting the data frame. (Hint: there are <tt>NA</tt>s in the field you'll probably have to take care of...)
+
+Note: add a "suppressWarnings()" around the function that you use to cast <tt>mag.max</tt> to numeric.
+```{r}
+mag.max = suppressWarnings(as.numeric(data$mag.max))
+#data.split = suppressWarnings(split(data, f=abb))
+data$abb = substr(data$name,7,9)
+res = suppressWarnings(data %>% group_by(abb) %>% summarize(Mean = mean(as.numeric(mag.max), na.rm = TRUE)))
+res %>% arrange(., Mean) 
+```
+
+## Question 10
+
+*(20 points)*
+
+If you histogram the distribution of <tt>mag.max</tt>, you will see that it is unimodal but skew. Attempt to fit these data with a "skew normal" distribution (look it up on Wikipedia; the <tt>R</tt> package is <tt>sn</tt>). There are three free parameters (leave $\tau = 0$, which is the default). Overlay your best-fit curve onto the histogram the way you would have on the Week 9 lab and homework. If the curve does not follow the histogram well, change your guesses for the parameter values and try again.
+```{r}
+#hist(mag.max)
+
+library(fdrtool)
+library(sn)
+my.data = na.omit(as.numeric(data$mag.max))
+my.fit.fun = function(my.par,my.data)
+{
+  -sum(log(dsn(my.data,omega=my.par[1],alpha = my.par[2],xi = my.par[3],tau = 0))) 
+}
+my.par = c(1,2,0) 
+optim.out = optim(my.par,my.fit.fun,my.data=my.data,method="Nelder-Mead")
+optim.out$par
+#optim.out$value
+hist(my.data,prob=TRUE,main=NULL,xlab=NULL)
+x = seq(min(my.data),max(my.data),by=0.01)
+lines(x,dsn(x,omega=optim.out$par[1],alpha=optim.out$par[2],xi =optim.out$par[3], tau = 0))
+```
+
+## Question 11
+
+*(5 points)*
+
+Now time for some history of astronomy. Find the smallest value of the <tt>mag.max</tt> (i.e., the most negative value). Examine that row of data. Find the year. Do some Googling. Can you identify the common name for this star (or...stellar remnant, actually)?
+```{r}
+minimum = suppressWarnings(min(as.numeric(data$mag.max), na.rm = TRUE)) 
+minimum
+suppressWarnings(data[which(as.numeric(data$mag.max)==minimum),]) 
+```
+```
+The samllest value is -3. Year is 1604 and  common name is Kepler Supernova.
+```
+
+## Question 12
+
+*(10 points)*
+
+Extract the periods of variation from the <tt>period</tt> field, remove the <tt>NA</tt>'s, and make a log (base 10) transformation. (Note that you should extract bytes 2 through 16 of the field, as otherwise you end up with a bunch of ":"s that cannot be coerced to numeric values.) Histogram the data. You should see bimodality. Determine an appropriate cut point (between the modes) and define a new factor variable that records the stars as short-period ("short") or long-period ("long") variables. Show how many stars are in each class. There is no "right" answer as far as where the cut should go. There are, of course, wrong answers.
+```{r}
+x = substr(data$period,2,16)
+p = log(as.numeric(x[!is.na(x)]), base = 10)
+hist(p, xlab="Periods of variation", main = "Histogram of periods of vaariation")
+abline(v=1.5,col="red",lwd=3,lty=2)
+
+data = data %>% mutate(., period_class = factor(case_when(as.numeric(period)<=10^1.5 ~ "short",
+                                                   as.numeric(period)>10^1.5 ~ "long")))
+table(data$period_class)
+```
+
+## Question 13
+
+*(10 points)*
+
+Display six-number summaries of <tt>mag.max</tt> for short- and long-period variables. Given that lower magnitudes mean brighter stars, which class has the highest average maximum brightness? (Note: so as not to compare apples to oranges, i.e., so as not to randomly permute your data, you need to filter the maximum magnitude data in the *exact same manner* that you filtered the *period* data...there will be a few <tt>NA</tt>'s [18 to be exact], because there are some period data for which there is no corresponding maximum magnitude data, but that's OK here.) In addition, estimate the standard errors of the means; I get 0.0225 for long-period variables, and 0.0196 for short-period variables. Note that you'll have to properly deal with the 18 <tt>NA</tt>'s to get the standard errors.
+```{r}
+library(plotrix)
+data.short = (data$mag.max[which(data$period_class=="short")])
+data.long = (data$mag.max[which(data$period_class=="long")])
+suppressWarnings(summary(as.numeric(na.omit(data.short))) )
+suppressWarnings(summary(as.numeric(na.omit(data.long)))) 
+suppressWarnings(std.error(as.numeric(data.short),na.rm = TRUE)) 
+suppressWarnings(std.error(as.numeric(data.long), na.rm = TRUE)) 
+```
+```
+Short period class has highest average maximum brightness.
+```
+
+## Question 14
+
+*(5 points)*
+
+A truly academic exercise: construct a table that show how many upper-case letters are in each entry in the <tt>spectrum</tt> field. Display the entries that have the maximum amount of upper-case letters.
+```{r}
+f = function(x)
+{
+  if (is.na(x)) return(NA)
+  a = rep(NA, 17)
+  for (i in 1:17) {
+    a[i] = substr(x,i,i) %in% LETTERS
+  }
+  return(sum(a))
+}
+
+num = lapply(data$spectrum, FUN = f) %>% unlist
+data$spectrum[which(num==10)]
+table(num)
+
+```
+
+## Question 15
+
+*(10 points)*
+
+How many stars have a so-called "M5e" spectrum? If you look at the <tt>spectrum</tt> field, you will that sometimes a single spectral designation is given ("M6e"), sometimes a range of spectral designations are given ("M4e-M7.5e"), and sometimes there are more confusing entries with commas ("S6.5,2e"). We will declare that the star can have an M5e designation if "M5e" is explicitly listed, or if it lies within a range (like "M4e-M6e"...presumably "M5e" is in that range). In the end, I find 318 stars have an "M5e" spectrum.
+```{r}
+m5e_ex = grep("^M5e +", data$spectrum, value = TRUE)
+m5e_im = grep("M([0-4](\\.[0-9])*|[0-5])e-M[5-9](\\.[0-9])*e +", data$spectrum, value = TRUE)
+length(m5e_ex)+length(m5e_im)
+
+```
+
+## Question 16
+
+*(15 points)*
+
+Write a function that computes the average proper motion of stars (in arc-seconds per year) as a function of the <tt>identifier</tt> variable (and the full data frame). Proper motion is the term for a star's movement within the celestial coordinate system; at a scale of sub-arcseconds per year, we can see that stars don't appear to move very fast. For your function, you might input "Hip" (meaning, listed in the *Hipparcos* satellite catalog), and your function will determine which rows correspond to the "Hip" identifier, remove the <tt>NA</tt>'s for <tt>proper.motion</tt>, and compute the average for remaining values. The proper motion as given has two values: the first is proper motion along longitude (RA) lines in arc-seconds per year, and the second is proper motion along latitude (dec) lines in arc-seconds per year. The overall proper motion is thus given by
+$$
+\mu = \sqrt{\mu_{\rm dec}^2 + \mu_{\rm RA}^2 \cos^2\delta} 
+$$
+where $\delta$ is the declination. (So you'll have to apply your code from Q8 again here to compute declinations on the fly from the <tt>coords</tt> field.) Beware: your code from Q8 produces declination in degrees, and $\cos$ takes angles in *radians* as input.
+
+Run your function with inputs "Hip" and "Tyc2". Note that the identifier will be extracted from the data frame as, e.g., "Hip      ", so you'll need to pad your input identifier with blank spaces to make a string that is of length 9 overall. (A little Googling and you should be able to figure out how to concisely pad strings of arbitary length.) Note that if nothing matches your input identifier, you should return <tt>NULL</tt>.
+```{r}
+library(stringr)
+library(pracma)
+
+dec = function(x) 
+{
+  sign = substr(x,11,11)
+  deg = as.numeric(substr(x,12,13))
+  minute = as.numeric(substr(x,14,15))*1/60
+  sec = as.numeric(substr(x,16,19))*1/3600
+  res = 0
+  if (sign == "+") res = deg+minute+sec
+  else res = -1*(deg+minute+sec)
+  return(res)
+}
+#declination = sapply(data$coords[complete.cases(data$coords)], FUN = f)
+
+compute = function(x) 
+{
+  x = str_pad(x, 9, "right")
+  d = data %>% filter(., identifier==x)
+  n = nrow(d)
+  if (n==0) return (NULL)
+  
+  res = rep(NA, n)
+  for (i in 1:n) {
+    pm = d$proper.motion[i]
+    mu_dec = as.numeric(substr(pm,8,13))
+    mu_ra = as.numeric(substr(pm,1,6))
+    declination = f(d$coords[i])
+    delta = deg2rad(declination)
+    mu = sqrt(mu_dec^2 + mu_ra^2*(cos(delta))^2)
+    res[i] = mu
+  }
+  
+  return(mean(res, na.rm = TRUE))
+}
+
+compute("Hip")
+compute("Tyc2")
+```
+
+## Question 17
+
+*(15 points)*
+
+Write another function that takes in the names of two identifiers (and the full data frame) and constructs side-by-side boxplots of the <tt>mag.minI</tt> variable. Test this function with "Hip" and "Tyc2" as inputs. You should see that the two distributions are quite different: the Tycho catalog contains fainter variable stars, i.e., stars with *larger* <tt>mag.minI</tt> values.
+```{r}
+drawbox = function(x, y)
+{
+  x = str_pad(x, 9, "right")
+  y = str_pad(y, 9, "right")
+  dx = data %>% filter(., identifier==x)
+  dy = data %>% filter(., identifier==y)
+  nx = nrow(dx)
+  ny = nrow(dy)
+  if (dx==0 || dy==0) return(NULL)
+  
+  suppressWarnings(boxplot(as.numeric(dx$mag.minI), as.numeric(dy$mag.minI), col="orange", main="Distribution of Mag.minI of two identifiers", ylab="Mag.minI", xlab = "Identifiers"))
+}
+
+drawbox("Hip", "Tyc2")
+```
+
+## Question 18
+
+*(15 points)*
+
+You need to write one last function: it takes in a <tt>type</tt> (and the full data frame) and histograms the values of <tt>mag.minI</tt>-<tt>mag.max</tt> for stars of that type. If the type that you name is not one of the listed types, your function should return <tt>NULL</tt>. If the first byte of the <tt>mag.minI</tt> field for a given row is "<", you should filter that row out. Your function should take in the exact string you want to match (e.g., "M") and pad the string with spaces to reach a length of 10. Your final histogram should exclude data for which the magnitude difference is less than zero (these are problematic data) and should have a x-axis label of "Magnitude Difference" and a title that declares "There are <N> variable stars of type <type>", where "<N>" is the number of stars of type "<type>". (For instance, "There are 3347 variable stars of type EA". See <tt>paste()</tt>.) And pick a good color! ("peachpuff" is always a winner...) Display histograms for the two most common types in the overall (i.e., unfiltered) data frame; you can determine these two types in the console via a sorted table, and you don't need to show your code. (We'll assume your code is fine if you pick the right two types!)
+```{r}
+drawhist = function(x)
+{
+  x = str_pad(x, 10, "right")
+  data.hist = data %>% filter(type == x)
+  if (nrow(data.hist)==0) return(NULL)
+  
+  temp = data.hist %>% filter(., !is.na(mag.minI), !is.na(mag.max)) %>%
+    filter(., !substr(mag.minI, 1, 1) == "<")
+  diff = suppressWarnings(as.numeric(temp$mag.minI) - as.numeric(temp$mag.max))
+  diff = na.omit(diff[diff > 0])
+  
+  n = nrow(temp)
+  title = paste("There are",as.character(n),"variable stars of type",x)
+  hist(diff, xlab  = "Magnitude Difference", main = title, col = "orange")
+}
+drawhist("M")
+drawhist("RRAB")
+
+
+```

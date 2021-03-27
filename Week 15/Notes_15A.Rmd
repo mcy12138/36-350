@@ -1,0 +1,98 @@
+---
+title: "Querying Databases from R Studio"
+author: "36-350 -- Statistical Computing"
+date: "Week 15 -- Spring 2019"
+output: 
+  slidy_presentation: 
+    font_adjustment: -1
+---
+
+```{r,echo=FALSE}
+set.seed(101)
+```
+
+DBI and RSQLite
+===
+
+The `DBI` package is `R`'s "database interface." It allow you to communicate with a relational database from within `RStudio`. You can view `DBI` as being analogous to `sparklyr`, in that you use `DBI` functions to forge connections with databases, just as you used `sparklyr` to forge connections with a Spark cluster. 
+
+To illustrate the use of `DBI`, we will utilize a variant of SQL dubbed `SQLite`, via use of the `RSQLite` package. `SQLite` "is a public-domain, single-user, very light-weight database engine that implements a decent subset of the SQL 92 standard, including the core table creation, updating, insertion, and selection operations, plus transaction management."
+
+- Note that one can use the package `RPostgreSQL` to connect to `postgres`, but setting this up requires additional tweaking of your `postgres` installation.
+
+Want even more information? See [this web page](https://cran.r-project.org/web/views/Databases.html).
+
+DBI and RSQLite: Basic Usage
+===
+
+**NOTE**: For the code on this page and subsequent pages to work, download `lahman2016.sqlite` from the Canvas site and add the appropriate path to it in the last line below.
+```{r error=TRUE}
+if ( require(DBI) == FALSE ) {
+  install.packages("DBI",repos="https://cloud.r-project.org")
+  library(DBI)
+}
+if ( require(RSQLite) == FALSE ) {
+  install.packages("RSQLite",repos="https://cloud.r-project.org")
+  library(RSQLite)
+}
+
+drv = dbDriver("SQLite")
+con = dbConnect(drv,dbname="./lahman2016.sqlite")
+```
+
+Listing Tables
+===
+
+The equivalent of `\\d` in `postgres` is `dbListTables(con)`:
+```{r error=TRUE}
+dbListTables(con)
+```
+There are 27 separate tables, all containing baseball statistics.
+
+Listing Columns
+===
+
+To list the columns in each table (here dubbed *fields*), we use `dbListFields()`:
+```{r error=TRUE}
+dbListFields(con,"Batting")
+```
+
+Note: we *can* import a table into `RStudio` as a data frame using `dbReadTable()`, but that's not really the point to using `SQLite`: the point is to work with relational databases directly (by doing `JOIN`s, etc.) and not to cast the tables to data frames and to try to recreate a `SQL` workflow in `RStudio` with, e.g., `dplyr`. 
+
+Heuristic: if you are doing statistical modeling given data in a single table, sure, read that table into `RStudio`...but if you need to work with the tables first to create a final table that has the data you wish to model, start with `SQLite`.
+
+Issuing Queries
+===
+
+To query the tables in our database, we use `dbGetQuery()`, and pass to it a valid `SQL` command. (Below I artificially break up the command over rows for enhanced readability.)
+```{r error=TRUE}
+dbGetQuery(con, "SELECT playerID, yearID, AB, H, HR 
+                      FROM Batting
+                      ORDER BY HR DESC
+                      LIMIT 10")
+```
+`dbGetQuery()` returns a data frame.
+
+As you are already familiar with basic `SQL`, you are basically all set to work!
+
+Caveats: JOINs
+===
+
+Two caveats to keep in mind as you work with `SQLite`:
+
+1) `JOIN` and `LEFT JOIN` are supported. `RIGHT JOIN` and `FULL OUTER JOIN`, e.g., are not. There's a reason why it is called `Lite`.
+
+2) The structure of a `JOIN` is slightly different. Instead of, e.g.,
+
+- <tt>FROM Batting JOIN Salaries ON Batting.playerID = Salaries.playerID AND Batting.yearID = Salaries.yearID</tt>
+
+you can use
+
+- `FROM Batting JOIN Salaries USING(playerID,yearID)`
+
+```{r error=TRUE}
+dbGetQuery(con, "SELECT playerID, yearID, salary, HR
+                      FROM Batting JOIN Salaries USING(playerID,yearID)
+                      ORDER BY HR DESC
+                      LIMIT 10")
+```

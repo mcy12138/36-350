@@ -1,0 +1,195 @@
+---
+title: "HW: Week 15 -- Solutions"
+author: "36-350 -- Statistical Computing"
+date: "Week 15 -- Spring 2019"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+Name: Carl Yang
+Andrew ID: yufeiy3
+
+This HW is to be begun in class, but may be finished outside of class at any time prior to Friday, May 3<sup>rd</sup> at 5:00 PM. You must submit **your own** lab as a knitted HTML file on the Canvas course page.
+
+<hr>
+
+In this homework, you will be working with Sean Lahman's baseball statistics database, which contains data from 1871 up through 2016. (More recent data are available, but not yet in <tt>SQLite</tt> format.) Download the file <tt>lahman2016.sqlite</tt> from the <tt>Canvas</tt> site, from under <tt>Files/MATERIALS/Week_15</tt>, if you have not done so already.
+
+Note that this homework does function somewhat like a <tt>SQL Project</tt> in that *you will not be pointed to specific slides of Notes 13 and 14*...but you will have to apply the material you learned from Notes 13 and 14 here.
+
+<hr>
+
+## Question 1
+*(5 points)*
+
+*Notes 15A (3-4)*
+
+Establish a connection to the Lahman database and list its tables.
+
+```{r}
+if ( require(DBI) == FALSE ) {
+  install.packages("DBI",repos="https://cloud.r-project.org")
+  library(DBI)
+}
+
+if ( require(RSQLite) == FALSE ) {
+  install.packages("RSQLite",repos="https://cloud.r-project.org")
+  library(RSQLite)
+}
+
+drv = dbDriver("SQLite")
+con = dbConnect(drv,dbname="./lahman2016.sqlite")
+dbListTables(con)
+```
+
+
+## Question 2
+*(10 points)*
+
+*Notes 15A (4-6)*
+
+List all ballparks that teams in Philadelphia have played in, in alphabetical order. (Note: use <tt>parkname</tt> for the ballpark name.)
+```{r}
+dbGetQuery(con, "SELECT parkname
+                      FROM Parks
+                      WHERE city = 'Philadelphia'
+                      ORDER BY parkname ASC")
+```
+
+## Question 3
+*(10 points)*
+
+*Notes 15A (4-6)*
+
+List the five winningest managers of all time, and the cumulative number of wins for each. Note: managers have unique <tt>playerID</tt> values; there is no <tt>managerID</tt>.
+```{r}
+dbGetQuery(con, "SELECT playerID, sum(W) as SUM
+                      FROM Managers
+                      GROUP BY playerID
+                      ORDER BY sum(W) DESC
+                      LIMIT 5")
+```
+
+## Question 4
+*(10 points)*
+
+*Notes 15A (4-6)*
+
+List all pitchers with 300 or more wins in their careers, along with their cumulative wins *and* losses, ordered by the number of wins. Use the <tt>Pitching</tt> table. Rename the sum of wins as <tt>W</tt> and the sum of losses as <tt>L</tt>.
+```{r}
+#dbListFields(con, "Pitching")
+dbGetQuery(con, "SELECT playerID, sum(W) as W, sum(L) as L 
+                      FROM Pitching
+                      GROUP BY playerID
+                      HAVING sum(W) >=300
+                      ORDER BY sum(W) DESC")
+```
+
+## Question 5
+*(10 points)*
+
+*Notes 15A (4-6)*
+
+List the top five major league batting averages in 2016, among all players that had at least 200 at bats. A few notes: batting average is <tt>h</tt> divided by <tt>AB</tt> in <tt>Batting</tt>; to force floating point division, multiply <tt>h</tt> by 1.0; round your quotient off to three decimal places; and rename your calculated column as <tt>ba</tt>.
+```{r}
+dbGetQuery(con, "SELECT ROUND((h*1.0/AB), 3) as batting_avg 
+                      FROM Batting
+                      WHERE yearID = 2016 AND AB >= 200
+                      ORDER BY batting_avg DESC
+                      limit 5")
+```
+
+## Question 6
+*(10 points)*
+
+*Notes 15A (4-7)*
+
+What ten players had the highest salaries during seasons in which they made the All-Star Game? Use the <tt>AllstarFull</tt> and <tt>Salaries</tt> tables to determine this, and list the player IDs, the years, and the salaries.
+```{r}
+dbGetQuery(con, "SELECT playerID, yearID, salary
+                      FROM AllstarFull JOIN Salaries USING(playerID,yearID)
+                      ORDER BY salary DESC
+                      limit 10")
+```
+
+## Question 7
+*(10 points)*
+
+*Notes 15A (4-7)*
+
+Repeat Q6, except instead of listing the player IDs, list the player first names and player last names. These may be found in the <tt>Master</tt> table. Note: this requires chaining two <tt>JOIN</tt>s.
+```{r}
+dbGetQuery(con, "SELECT nameFirst, nameLast, yearID, salary
+                      FROM AllstarFull 
+                      JOIN Salaries USING(playerID,yearID) 
+                      JOIN Master USING(playerID)
+                      ORDER BY salary DESC
+                      limit 10")
+```
+
+## Question 8
+*(10 points)*
+
+*Notes 15A (4-7)*
+
+Compute the slugging percentages of players during the years that they won the Triple Crown. 
+
+The slugging percentage is the total number of bases a player gains from hitting divided by the total number of at-bats. If you look in the <tt>Batting</tt> table, there are fields dubbed <tt>H</tt> (for overall number of hits), <tt>2B</tt> (for doubles: two bases gained), <tt>3B</tt> (for triples: three bases gained), <tt>HR</tt> (for home runs: four bases gained), and <tt>AB</tt> (for at-bats). To determine the number of singles (hits with one base gained), substract the number of doubles, triples, and home runs from the overall number of hits. 
+
+To limit yourself to Triple Crown winners (highest batting average, number of home runs, and number of runs batted in in the same season), you want to join the <tt>Batting</tt> table with the <tt>AwardsPlayers</tt> table and keep those rows of output wherein <tt>awardID='Triple Crown'</tt>. In the end, show the <tt>playerID</tt>, the <tt>yearID</tt>, and the slugging percentage (named <tt>slugging</tt>), rounded to three decimal places. 
+
+(Hint: you may have to surround certain field names with *square brackets* so as not to confuse the `SQLite` parser when computing the slugging percentage. Specifically: the field names with numbers in them.)
+
+If you do this all correctly, you should get 17 rows output, the last being for Miguel Cabrera (<tt>cabremi01</tt>) in 2012, with a 0.606 slugging percentage.
+```{r}
+dbGetQuery(con, "SELECT playerID, yearID, ROUND(((H-[2B]-[3B]-[HR])+[2B]*2.0+[3B]*3.0+[HR]*4.0)/AB, 3) as slugging
+                      FROM Batting 
+                      JOIN AwardsPlayers USING(playerID, yearID) 
+                      WHERE awardID='Triple Crown'")
+```
+
+## Question 9
+*(10 points)*
+
+*Notes 15A (4-6)*
+
+Here we will combine database work with plotting. Compute the total salary paid to players in each year since (and including) 1990, and plot this number (which you should call <tt>totalSalary</tt>) versus year. You should see that earlier this decade, the total salary passed three *billion* dollars per year. (Which is a lot...but on the other hand, Jeff Bezos could still pay all major league baseball players by himself. If he felt so compelled.)
+```{r}
+database = dbGetQuery(con, "SELECT yearID, sum(salary) as totalSalary
+                      FROM Salaries
+                      WHERE yearID >= 1990
+                      GROUP BY yearID")
+database
+plot(database$year, database$totalSalary, xlab = "Year", ylab = "Total Salary")
+```
+
+## Question 10
+*(10 points)*
+
+*Notes 15A (4-6)*
+
+One last question: who had the longest career? You might think that you should simply count the number of rows for each player and determine the maximum, but no, not here. In the <tt>Master</tt> table, there are two specific fields: <tt>debut</tt> and <tt>finalGame</tt>. Pull out this information, along with <tt>nameFirst</tt> and <tt>nameLast</tt>, and then use, e.g., <tt>dplyr</tt> functions to compute the number of days between debut and final game, and to arrange the output in order of the number of days, descending. Show the first ten rows of output only. (Hint: Google <tt>as.Date()</tt>...this can simplify the calculation immensely. Do not code your own "convert two dates to a difference in days" function.)
+```{r}
+library(tidyverse)
+library(dplyr)
+result = dbGetQuery(con, "SELECT nameFirst, nameLast, finalGame, debut
+                      FROM Master")
+df = data.frame(result$nameFirst, result$nameLast, as.Date(result$finalGame)-as.Date(result$debut))
+colnames(df)[1] = "first name"
+colnames(df)[2] = "last name"
+colnames(df)[3] = "days"
+df %>% arrange(., desc(days)) %>% head(10)
+```
+
+## Question 11
+*(5 points)*
+
+*Use Google or look at the RSQLite documentation*
+
+Finish things off by disconnecting from `SQLite`.
+```{r}
+dbDisconnect(con)
+```

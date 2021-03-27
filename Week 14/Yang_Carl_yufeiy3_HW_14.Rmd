@@ -1,0 +1,299 @@
+---
+title: "HW: Week 14"
+author: "36-350 -- Statistical Computing"
+date: "Week 15 -- Spring 2019"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+Name: Carl Yang
+Andrew ID: yufeiy3
+
+This HW is to be begun in class, but may be finished outside of class at any time prior to Friday, April 26<sup>th</sup> at 5:00 PM. You must submit **your own** lab as a knitted HTML file on the Canvas course page.
+
+<hr>
+
+It will help you to have "correct" solutions for Q6-Q8 from HW 13 in order to do HW 14. (Your solutions may differ but if they get the same result, they are of course fine.) I show them below:
+
+Q6:
+```
+create table new_table (player integer references more_player_stats, prl numeric, position text);
+insert into new_table (player, prl) (select id, round(per - 67*va/(gp * minutes),1) from more_player_stats);
+update new_table set position = 'PF' where prl >= 11.3;
+update new_table set position = 'PG' where prl >= 10.8 and prl < 11.3;
+update new_table set position = 'C'  where prl >= 10.6 and prl < 10.8;
+update new_table set position = 'SG/SF' where prl < 10.6;
+```
+
+Q7:
+```
+alter table player_bios add column position text;
+update player_bios set position = new_table.position from new_table where id = new_table.player;
+```
+
+Q8:
+```
+alter table player_bios add column height_inches numeric;
+update player_bios
+   set height_inches = 12*split_part(height,'-',1)::integer + split_part(height,'-',2)::integer;
+alter table player_bios drop column height;
+alter table player_bios rename column height_inches to height;
+```
+
+Run the above chunks of <tt>SQL</tt> code prior to starting Q1 below.
+
+<hr>
+
+## Question 1
+*(20 points)*
+
+*Review of Notes 13B*
+
+Create a table called <tt>players</tt> with the following columns:
+
+- <tt>id</tt>: a serial primary key
+- <tt>firstname</tt> and <tt>lastname</tt>: both text
+- <tt>position</tt>: a string as defined in HW 13
+- <tt>age</tt>, <tt>height</tt> (in inches, as determined in HW 13), and <tt>weight</tt>: all as integers with checks that the values are greater than zero
+- <tt>college</tt>, <tt>country</tt>, <tt>draft_year</tt>, <tt>draft_round</tt>, and <tt>draft_number</tt>: all as text
+
+These data are available in <tt>player_bios</tt>. Use <tt>CREATE</tt> and <tt>INSERT</tt> with <tt>SELECT</tt> to copy these data to <tt>players</tt>. Show the first five first and last names.
+```
+CREATE TABLE players (
+  id serial PRIMARY KEY,
+  firstname text,
+  lastname text,
+  position text,
+  age numeric CHECK (age > 0),
+  height numeric CHECK (height > 0),
+  weight numeric CHECK (weight > 0),
+  college text,
+  country text,
+  draft_year text,
+  draft_round text,
+  draft_number text
+);
+
+
+INSERT INTO players (id, firstname, lastname, position, age, height, weight, college, country, draft_year, draft_round,             draft_number) 
+  SELECT id, firstname, lastname, position, age, height, weight, college, country, draft_year, draft_round, draft_number
+  FROM player_bios;
+  
+  
+INSERT INTO players 
+  (select id from player_bios as id,
+  firstname from player_bios as firstname,
+  lastname from player_bios as lastname,
+  position from player_bios as position,
+  age from player_bios as age,
+  height from player_bios as height,
+  weight from player_bios as weight,
+  college from player_bios as college,
+  country from player_bios as country,
+  draft_year from player_bios as draft_year,
+  draft_round from player_bios as draft_round,
+  draft_number from player_bios as draft_number
+);
+  
+select firstname, lastname from players limit 5;
+
+ firstname | lastname
+-----------+-----------
+ Nate      | Robinson
+ Aaron     | Brooks
+ Andre     | Miller
+ Andrew    | Goudelock
+ Austin    | Rivers
+(5 rows)
+```
+
+## Question 2
+*(20 points)*
+ 
+*Review of Notes 13B; Notes 14B (4)*
+
+Now you will construct a table of player statistics for the 2015-15 NBA season, called <tt>stats</tt>. The columns:
+
+- <tt>id</tt>: a serial primary key
+- <tt>player</tt>: a foreign integer key that references the <tt>players</tt> table (when inserting, you would select players.id as player)
+- <tt>team</tt>: a <tt>char(3)</tt>
+- <tt>gp</tt>: an integer
+- <tt>minutes</tt>, <tt>fga</tt>, <tt>fgpct</tt>, <tt>tppct</tt>, <tt>fta</tt>, <tt>ftpct</tt>, <tt>ast</tt>, <tt>tov</tt>, <tt>pts</tt>, <tt>tovr</tt>, <tt>ewa</tt>: all numeric
+
+Some of these quantities are in <tt>player_stats</tt>, some are in <tt>more_player_stats</tt>, and some are in <tt>players</tt>. To build the table, you will chain two <tt>JOIN</tt>s together: you will join <tt>player_stats</tt> and <tt>players</tt> using first *and* last names, and further join <tt>more_player_states</tt> using id's.
+
+When you are all done, display the first three rows of your new table.
+```
+CREATE TABLE stats (
+  id serial PRIMARY KEY,
+  player integer,
+  FOREIGN KEY (player) REFERENCES players,
+  team char(3),
+  gp integer,
+  minutes numeric,
+  fga numeric,
+  fgpct numeric,
+  tppct numeric,
+  fta numeric,
+  ftpct numeric,
+  ast numeric,
+  tov numeric,
+  pts numeric,
+  tovr numeric,
+  ewa numeric
+);
+
+
+INSERT INTO stats (id,player,team,gp,minutes,fga,fgpct,tppct,fta,ftpct,ast,tov,pts,tovr,ewa) 
+  SELECT player_stats.id, players.id, player_stats.team, player_stats.gp, player_stats.minutes, fga, fgpct, tppct, fta, ftpct, ast, 
+    tov, pts, tovr, ewa 
+  FROM players
+  JOIN player_stats ON player_stats.firstname=players.firstname AND player_stats.lastname=players.lastname
+  JOIN more_player_stats ON more_player_stats.id = players.id;
+  
+select * from stats limit 3;
+
+ id | player | team | gp | minutes | fga | fgpct | tppct | fta | ftpct | ast | tov | pts | tovr | ewa
+----+--------+------+----+---------+-----+-------+-------+-----+-------+-----+-----+-----+------+------
+  1 |      1 | CHI  | 69 |    16.1 | 6.8 |  40.1 |  35.7 | 0.9 |  76.6 | 2.6 | 1.2 | 7.1 | 10.8 |  0.5
+  2 |      2 | ORL  | 78 |    23.9 | 7.4 |  47.3 |  29.6 | 2.5 |  66.8 | 1.6 | 0.8 | 9.2 |  7.7 |  5.2
+  3 |      3 | CHA  | 21 |     4.4 | 0.9 |  26.3 |  30.0 | 0.6 |  41.7 | 0.1 | 0.2 | 0.9 | 13.2 | -0.3
+(3 rows)
+```
+
+## Question 3
+*(10 points)*
+
+*Review of Notes 13C; Notes 14A (2,4)*
+
+List the names and average points per game of the top 25 scorers, in descending order of average points per game, restricting your attention to those players who averaged at least eight minutes per game and who played at least 10 games.
+```
+SELECT firstname, lastname, pts FROM players JOIN stats on players.id = stats.id 
+    WHERE minutes >= 8 AND gp >=10 ORDER BY pts DESC;
+    
+firstname   |     lastname     | pts
+--------------+------------------+------
+ Stephen      | Curry            | 30.1
+ James        | Harden           | 29.0
+ Kevin        | Durant           | 28.2
+ DeMarcus     | Cousins          | 26.9
+ LeBron       | James            | 25.3
+```
+
+## Question 4
+*(10 points)*
+
+*Review of Notes 13C; Notes 14A (2-4)*
+
+Rank teams according to average points per game over all players on the team who played at least 24 minutes per game on average.
+```
+
+SELECT team FROM stats WHERE minutes >= 24 GROUP BY team ORDER BY avg(pts) DESC limit 5;
+
+team 
+------
+ GSW
+ OKC
+ HOU
+ LAC
+ DET
+(5 rows)
+```
+
+## Question 5
+*(10 points)*
+
+*Review of Notes 13C; Notes 14A (2,4); Notes 14B (4)*
+
+List the five players (in order last name, then first name) with the highest minutes per game but a negative "estimated wins added" to the team (<tt>ewa</tt>).
+```
+SELECT  lastname, firstname FROM players JOIN stats on players.id = stats.id 
+    WHERE ewa < 0 ORDER BY minutes DESC limit 5; 
+    
+ lastname | firstname
+----------+-----------
+ Mudiay   | Emmanuel
+ Korver   | Kyle
+ Winslow  | Justise
+ Thompson | Hollis
+ Waiters  | Dion
+(5 rows)
+```
+
+## Question 6
+*(10 points)*
+
+*Review Notes 13C; Notes 14A (2,4,6); Notes 14B (4)*
+
+List the last name, first name, position, points per game, and the average points per game of players with the same position in each row. Show the results in order of position first, and then by descending points per game. Computing the average described above requires the use of an <tt>OVER</tt> clause and a <tt>PARTITION BY</tt> window function: put <tt>OVER (PARTITION BY players.position)</tt> before the <tt>from</tt> clause. Round the average points to two decimal places. Limit your query to players who play more than 24 minutes per game. Show the first 10 rows of your resulting table. The fifth column will all have the same numbers: this is, e.g., the average points per game for all players listed as centers. (That's what it is in my output: I get an average of 13.27 points per game for centers.)
+```
+SELECT lastname, firstname, position, pts, ROUND(avg(pts) OVER (PARTITION BY position),2) as avg_pts_per_position
+    FROM players JOIN stats on players.id = stats.id 
+    WHERE minutes > 24
+    ORDER BY position ASC, pts DESC limit 10;
+    
+ lastname |  firstname   | position | pts  | avg_pts_per_position
+----------+--------------+----------+------+----------------------
+ Cousins  | DeMarcus     | C        | 26.9 |                13.27
+ Lopez    | Brook        | C        | 20.6 |                13.27
+ Towns    | Karl-Anthony | C        | 18.3 |                13.27
+ Vucevic  | Nikola       | C        | 18.2 |                13.27
+ Okafor   | Jahlil       | C        | 17.5 |                13.27
+ Gasol    | Marc         | C        | 16.6 |                13.27
+ Gasol    | Pau          | C        | 16.5 |                13.27
+ Drummond | Andre        | C        | 16.2 |                13.27
+ Monroe   | Greg         | C        | 15.3 |                13.27
+ Horford  | Al           | C        | 15.2 |                13.27
+(10 rows)
+```
+
+## Question 7
+*(10 points)*
+
+*Review of Notes 13C; Notes 14A (2,4); Notes 14B (4)*
+
+List the last name, first name, field-goal percentage (<tt>fgpct</tt>), free-throw percentage (<tt>ftpct</tt>), and three-point-field-goal percentage (<tt>tppct</tt>) for all players who, over the course of the season, had a field-goal percentage of at least 50, a free-throw percentage of at least 80, and a three-point-field-goal percentage of at least 35. Order your output by field-goal percentage, decreasing.
+```
+SELECT lastname, firstname, fgpct, ftpct, tppct 
+FROM players JOIN stats on players.id = stats.id 
+WHERE fgpct>=50 and ftpct>=80 and tppct>=35
+ORDER BY fgpct DESC ;
+
+ lastname | firstname | fgpct | ftpct | tppct
+----------+-----------+-------+-------+-------
+ Leonard  | Kawhi     |  50.6 |  87.4 |  44.3
+ Durant   | Kevin     |  50.5 |  89.8 |  38.7
+ Curry    | Stephen   |  50.4 |  90.8 |  45.4
+(3 rows)
+```
+
+## Question 8
+*(10 points)*
+
+*Review of Notes 13C; Notes 14A (2,4)*
+
+The turnover ratio column is defined in the <tt>README</tt> file as Turnover Ratio = (Turnover x 100) divided by [FGA+(FTA x 0.44)+Assists+Turnovers]. Compute this quantity directly given your <tt>stats</tt> table and show that the computed values are essentially the same as those stored in the column <tt>tovr</tt>. (To be clear: this means to display player id, the computed column (rounded to two decimal places), and the value of <tt>tovr</tt>. Show your first 10 results.
+
+The tricky part here is avoiding dividing by zero. You want to perform the calculation for those rows where, e.g., the player is "not in (...)", where the part inside the parentheses is a selection of players where the statistics in the denominator are each equal to zero.
+```
+SELECT player, round((tov*100)/(fga+(fta*0.44)+ast+tov),2) as TURNOVERRATIO, tovr FROM stats
+WHERE player not in (SELECT player FROM stats WHERE (fga+(fta*0.44)+ast+tov=0))
+limit 10;
+
+ player | turnoverratio | tovr
+--------+---------------+------
+      1 |         10.91 | 10.8
+      2 |          7.34 |  7.7
+      3 |         13.66 | 13.2
+      4 |         16.20 | 16.3
+      5 |          7.22 |  7.3
+      6 |          5.02 |  5.2
+      7 |         11.69 | 11.5
+      8 |          3.16 |  2.5
+      9 |         14.58 | 14.6
+     10 |          9.77 | 10.0
+(10 rows)
+```

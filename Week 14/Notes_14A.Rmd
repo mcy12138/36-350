@@ -1,0 +1,110 @@
+---
+title: "More on Database Querying via SELECT"
+author: "36-350 -- Statistical Computing"
+date: "Week 14 -- Spring 2019"
+output: 
+  slidy_presentation: 
+    font_adjustment: -1
+---
+
+```{r,echo=FALSE}
+set.seed(101)
+```
+
+SELECT
+===
+
+A shortened definition that highlights elements of the syntax that are important in the context of this class is:
+```
+SELECT
+  [*]
+  [<expression>]
+  [FROM <expression>]
+  [WHERE <condition>]
+  [GROUP BY <expression>]
+  [HAVING <condition>]
+  [ORDER BY <expression>];
+```
+
+Last week, we focused on the modifiers <tt>FROM</tt> and <tt>WHERE</tt>. In these notes we will focus on the final three modifiers. We'll look at examples using the following table:
+```
+CREATE TABLE foo (id serial primary key, letter text, x real);
+INSERT INTO foo (SELECT generate_series(1,20) as id,
+                        ('{X,Y,Z}'::text[])[ceil(random()*3)] as letter,
+                        random()*1000.0 as x);
+```
+
+SELECT - GROUP BY
+===
+
+The <tt>GROUP BY</tt> modifier allows one to apply, e.g., functions to groups of rows. It only makes sense to apply this modifier if one of the columns is akin to a factor variable, with a finite number of entries (such as <tt>letter</tt> is in our example).
+
+If one wants to determine the minimum value of <tt>x</tt> in the table <tt>foo</tt>, one does
+```
+SELECT min(x) FROM foo;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_nogroup.png){width=150px}</center>
+
+However, if one wants to determine the minimum value of <tt>x</tt> associated with each unique <tt>letter</tt>, one does
+```
+SELECT letter,min(x) FROM foo
+  GROUP BY letter;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_group.png){width=150px}</center>
+
+Note that one can use an ordinal number (as in <tt>GROUP BY 1</tt>, meaning group by the first column of the selected table). Also note that the output above is not ordered by either column (the output is in essentially random order)...that's what <tt>ORDER BY</tt> is for.
+
+SELECT - ORDER BY
+===
+
+Let's amend our selection on the last slide so as to have the output ordered by the value of <tt>min(x)</tt>:
+```
+SELECT letter,min(x) FROM foo
+  GROUP BY letter
+  ORDER BY min(x) ASC;
+```
+
+The <tt>ASC</tt> means "ascending," which is the default, which is contrasted with <tt>DESC</tt> for "descending." One can specify multiple orderings, as in this (actually useless) example:
+```
+SELECT letter,min(x) FROM foo
+  GROUP BY letter
+  ORDER BY min(x) DESC,letter ASC;
+```
+Ordering is done on the basis of the first listed column (<tt>min(x)</tt>), but if there is a tie, then the tie is broken by the second listed column (<tt>letter</tt>).
+
+SELECT - HAVING
+===
+
+The <tt>HAVING</tt> modifier filters the new rows created via <tt>GROUP BY</tt>, i.e., group, apply function, then filter:
+```
+SELECT letter,min(x) FROM foo
+  GROUP BY letter
+  HAVING min(x) > 300;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_having.png){width=150px}</center>
+
+The use of <tt>HAVING</tt> can be constrasted against the use of <tt>WHERE</tt>, which filters individual rows before grouping is done, i.e., filter, group, then apply function:
+```
+SELECT letter,min(x) FROM foo
+  WHERE x > 500
+  GROUP BY letter;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_where.png){width=150px}</center>
+
+Of course, if one wants to be really fancy, one can combine <tt>WHERE</tt> and <tt>HAVING</tt>: apply one filter, group, apply function, then apply a second filter.
+
+SELECT - WINDOW FUNCTION
+===
+
+The last concept we will touch upon is that of the "window function," which performs a calculation across a set of related table rows. We will specifically look at the <tt>OVER/PARTITION BY</tt> command:
+```
+SELECT letter,min(x) OVER (PARTITION BY letter) FROM foo;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_over.png){width=150px}</center>
+
+Note that the <tt>OVER</tt> modifier modifies <tt>min(x)</tt> specifically, i.e., think of <tt>min(x) OVER (PARTITION BY letter)</tt> as a single parsable statement. You can immediately see the difference in output between the above and what is towards the bottom of the third slide: here, all rows are output, whereas before any repeated rows were removed. A good example of when you might want to use <tt>OVER/PARTITION BY</tt> is if you are trying to produce a list of basketball players, their positions, their points per game, and the average number of points per game scored by all players at that position...you would get the last quantity after partitioning by position.

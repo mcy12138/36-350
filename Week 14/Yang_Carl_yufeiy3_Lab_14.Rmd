@@ -1,0 +1,286 @@
+---
+title: "Lab: Week 14"
+author: "36-350 -- Statistical Computing"
+date: "Week 14 -- Spring 2019"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+Name: Carl Yang
+Andrew ID: yufeiy3
+
+This lab is to be begun in class, but may be finished outside of class at any time prior to Thursday, April 25<sup>th</sup> at 5:00 PM. You must submit **your own** lab as a knitted HTML file on the Canvas course page.
+
+This week's lab is like last week's lab: you will do your work "remotely" and cut and paste your answers into plain code blocks below:
+```
+This is a plain code block. Note the lack of a {r} above.
+```
+
+## Question 1
+*(10 points)*
+
+*Notes 13A (4-6); Notes 13B (3-5)*
+
+Create (and populate!) a new table <tt>widgets</tt> exactly as you did the <tt>rdata</tt> table in Lab 13, except rename columns <tt>a</tt> and <tt>b</tt> as <tt>code</tt> and <tt>category</tt>, respectively. Display the first five rows of your table.
+```
+CREATE TABLE widgets (
+  id serial PRIMARY KEY,
+  code text,
+  category text,
+  moment date,
+  x real
+);
+
+INSERT INTO widgets 
+  (select generate_series(1,101) as id, md5(random()::text) as code, ('{X,Y,Z,W,V}'::text[])[ceil(random()*3)] as category, 
+  (((random()*365)::integer) +'2019-01-01'::date) as moment , random()*100 as x);
+  
+select * from widgets limit 5;
+
+ id |               code               | category |   moment   |    x
+----+----------------------------------+----------+------------+---------
+  1 | ad7167e602eaa4af96f2e0fc8e46fbb7 | Y        | 2019-02-17 | 67.0555
+  2 | c233a71410acc919d44edf1f035e19ad | X        | 2019-06-19 | 55.7161
+  3 | 9913c9ee3c67379cb390791b041aac69 | Y        | 2019-07-02 | 91.4792
+  4 | 186ee1e64b12df59dfbac957883e8726 | Y        | 2019-03-25 | 90.6856
+  5 | be224eaa0cde0ae123a7a11fbef89cb2 | Z        | 2019-06-28 | 77.9671
+(5 rows)
+```
+
+## Question 2
+*(10 points)*
+
+*Notes 13A (4-6); Notes 13B (3-5); Notes 14B (2)*
+
+Create a new table <tt>shipments</tt> that should include <tt>id</tt> that acts as the serial primary key for the table, an <tt>integer</tt> *foreign key* <tt>widget_id</tt> that references <tt>widgets</tt>, a text <tt>location</tt>, and an <tt>integer</tt>-valued <tt>number_shipped</tt> that has default value zero. Populate the <tt>widget_id</tt> and <tt>number_shipped</tt> columns with random integers (1 to 101 for <tt>widget_id</tt>!), and the <tt>location</tt> column with cities randomly chosen from the list {Pittsburgh,New York,Vancouver,Austin}. There should be 50 rows in all. You should <tt>UPDATE</tt> the rows where <tt>widget_id</tt> is less than 5 so as to have a null <tt>widget_id</tt>; these rows then represent shipments that did not include any widgets at all. Display the first five rows of your table.
+```
+CREATE TABLE shipments (
+  id serial PRIMARY KEY,
+  widget_id integer,
+  FOREIGN KEY (widget_id) REFERENCES widgets,
+  location text,
+  number_shipped integer DEFAULT 0
+);
+
+INSERT INTO shipments
+  (select generate_series(1,50) as id, 
+  floor(random() * 101 + 1)::int as widget_id,
+  ('{Pittsburgh,New York,Vancouver,Austin}'::text[])[ceil(random()*4)] as location,
+  floor(random() * 500 + 1)::int as number_shipped
+);
+
+UPDATE shipments 
+  SET widget_id = NULL
+  WHERE widget_id < 5;
+
+select * from shipments limit 5;
+
+ id | widget_id |  location  | number_shipped
+----+-----------+------------+----------------
+  1 |       100 | Pittsburgh |            379
+  2 |        79 | Vancouver  |            230
+  3 |        72 | New York   |            102
+  4 |         9 | Vancouver  |            379
+  5 |        27 | Austin     |            291
+(5 rows)
+```
+
+
+## Question 3
+*(10 points)*
+
+*Notes 13C (5); Notes 14A (2,4); Notes 14B (4)*
+
+Using a <tt>JOIN</tt>, select the shipment id, widget id, widget code, widget moment, and shipment location for all the shipments of widgets of <tt>category</tt> <tt>'X'</tt>. Sort the result in descending order by <tt>moment</tt>.
+```
+
+select shipments.id, shipments.widget_id, widgets.code, widgets.moment, location from widgets JOIN shipments 
+  on (category = 'X' AND widgets.id=shipments.widget_id) ORDER BY moment DESC;
+
+ id | widget_id |               code               |   moment   |  location
+----+-----------+----------------------------------+------------+------------
+  8 |        31 | 1a2a0c3e1d2ef11b8648cd69bcab6572 | 2019-10-18 | Pittsburgh
+ 44 |        89 | b8be6f493f112ed1e81fb980096fc795 | 2019-10-14 | New York
+  2 |        79 | 117e81e01909db5894c0e2410fef7ff6 | 2019-09-18 | Vancouver
+ 48 |        79 | 117e81e01909db5894c0e2410fef7ff6 | 2019-09-18 | Austin
+  1 |       100 | b9e5244b6ba13f2188ff6be93210d143 | 2019-08-06 | Pittsburgh
+```
+
+## Question 4
+*(10 points)*
+
+*Notes 14A (2-4)*
+
+Using <tt>GROUP BY</tt>, print the minimum and maximum <tt>moment</tt> for the widgets in each category, ordered by the minimum value of <tt>moment</tt>.
+```
+SELECT category,min(moment),max(moment) FROM widgets
+  GROUP BY category
+  ORDER BY min(moment) DESC;
+  
+ category |    min     |    max
+----------+------------+------------
+ Z        | 2019-03-02 | 2019-12-28
+ Y        | 2019-01-11 | 2019-12-15
+ X        | 2019-01-05 | 2019-10-29
+(3 rows)
+```
+
+## Question 5
+*(10 points)*
+
+*Notes 13C (5); Notes 14A (2-4); Notes 14B (4)*
+
+Using a <tt>JOIN</tt>, a <tt>WHERE</tt> clause, a <tt>GROUP BY</tt> clause, and the <tt>count()</tt> and <tt>avg()</tt> functions, print the category, the number of shipments with widgets in each category along with the average value of <tt>x</tt>, ordered by the average value of <tt>x</tt>. (Using <tt>as</tt>, rename the widget count in your output to be <tt>shipment_count</tt> and the average value of <tt>x</tt> to be <tt>avg_x</tt>.) If you are confused about the <tt>WHERE</tt> clause: you don't want to consider rows in <tt>shipments</tt> where the <tt>widget_id</tt> is <tt>NULL</tt>. (Note: in the <tt>JOIN</tt>, you can specify, e.g., either <tt>shipments.widget_id</tt> or just <tt>widget_id</tt>. As long as there is no ambiguity [i.e., as long as the column name does not appear in both tables in a <tt>JOIN</tt>], <tt>postgres</tt> will figure it out.)
+```
+SELECT category, count(number_shipped) as shipment_count, avg(x) as avg_x FROM widgets JOIN shipments 
+  on widgets.id = shipments.widget_id 
+  WHERE shipments.widget_id IS NOT NULL 
+  GROUP BY category
+  ORDER BY avg(x) ASC;
+
+ category | shipment_count |      avg_x
+----------+----------------+------------------
+ Y        |             19 | 54.8240609419973
+ Z        |             15 | 59.0873439788818
+ X        |             16 | 71.4796795845032
+(3 rows)
+```
+
+## Question 6
+*(10 points)*
+
+*Notes 13C (5); Notes 14A (2-4); Notes 14B (4)*
+
+Using a <tt>JOIN</tt>, a <tt>WHERE</tt> clause, a <tt>GROUP BY</tt> clause, and the <tt>count()</tt> function, print the category, location, and number of shipments with widgets for each combination of category and location, ordered first by category and then by location. As above, rename the count to be <tt>shipment_count</tt>.
+```
+SELECT category, location, count(number_shipped) as shipment_count FROM widgets JOIN shipments 
+  on widgets.id = shipments.widget_id 
+  WHERE shipments.widget_id IS NOT NULL 
+  GROUP BY category, location
+  ORDER BY category ASC, location ASC;
+
+ category |  location  | shipment_count
+----------+------------+----------------
+ X        | Austin     |              4
+ X        | New York   |              2
+ X        | Pittsburgh |              6
+ X        | Vancouver  |              4
+ Y        | Austin     |              1
+ Y        | New York   |              5
+ Y        | Pittsburgh |              6
+ Y        | Vancouver  |              7
+ Z        | Austin     |              5
+ Z        | New York   |              6
+ Z        | Pittsburgh |              2
+ Z        | Vancouver  |              2
+(12 rows)
+```
+
+## Question 7
+*(10 points)*
+
+*Notes 13C (3-5); Notes 14A (2-4); Notes 14B (4)*
+
+Using a <tt>JOIN</tt>, a <tt>WHERE</tt> clause, a <tt>GROUP BY</tt> clause, and the <tt>count()</tt> and <tt>avg()</tt> functions, print the category and the number of shipments with widgets in each category, only counting those shipments that contained at least the average number of widgets shipped overall, ordered by the average number shipped. As above, rename the count as <tt>shipment_count</tt>. (Hint: to calculate and use the average of <tt>number_shipped</tt> in the <tt>WHERE</tt> clause, remember that you use <tt>SELECT</tt> to do on the fly calculations. Just surround your <tt>SELECT</tt> clause with parentheses, so as to not confuse the parser.)
+```
+SELECT category, count(number_shipped) as shipment_count FROM widgets JOIN shipments 
+  on widgets.id = shipments.widget_id 
+  WHERE shipments.number_shipped >= (SELECT avg(number_shipped) from shipments)
+  GROUP BY category
+  ORDER BY avg(number_shipped) ASC;
+
+ category | shipment_count
+----------+----------------
+ Z        |              6
+ Y        |             12
+ X        |              9
+(3 rows)
+```
+
+## Question 8
+*(10 points)*
+
+*Notes 14A (2-5); Notes 14B (4)*
+
+Using a <tt>JOIN</tt>, <tt>GROUP BY</tt> and <tt>HAVING</tt> clauses, and the <tt>count()</tt> and <tt>avg()</tt> functions, print the category, average number shipped (rounded to one digit), and the number of shipments with widgets in each category, for categories where the average value of <tt>number_shipped</tt> is bigger than some threshold you choose (e.g., 5000), in *descending* order of average <tt>number_shipped</tt>. (There is no need for a <tt>WHERE</tt> clause here: you are filtering *after* you group, not before.) Rename the rounded average of <tt>number_shipped</tt> as <tt>avg_shipped</tt> and the count as <tt>shipment_count</tt>.
+```
+SELECT category, round(avg(number_shipped),1) as avg_shipped, count(number_shipped) as shipment_count FROM widgets JOIN shipments 
+  on widgets.id = shipments.widget_id 
+  GROUP BY category
+  HAVING avg(number_shipped) > 200
+  ORDER BY avg(number_shipped) DESC;
+
+ category | avg_shipped | shipment_count
+----------+-------------+----------------
+ Y        |       304.2 |             19
+ X        |       299.2 |             16
+ Z        |       208.5 |             15
+(3 rows)
+```
+
+<hr>
+
+Cut and paste the following into your <tt>postgres</tt> session.
+```
+create table continents ( code char(3) primary key , continent text );
+insert into continents values
+     ('usa','North America'),
+     ('can','North America'),
+     ('gbr','Europe'),
+     ('ger','Europe'),
+     ('chn','Asia'),
+     ('ind','Asia'),
+     ('egy','Africa'),
+     ('ecu','South America');
+create table capitals ( code char(3) primary key, capital text );
+insert into capitals values
+     ('mex','Mexico City'),
+     ('can','Ottawa'),
+     ('jpn','Tokyo'),
+     ('ind','New Delhi'),
+     ('ecu','Quito');
+```
+     
+<hr>
+
+## Question 9
+*(10 points)*
+
+*Notes 14A (2); Notes 14B (3-6)*
+
+Display the values of <tt>capital</tt> and <tt>continent</tt> such that every value of <tt>continent</tt> in the <tt>continents</tt> table is displayed. There thus will be eight rows in all.
+```
+select capital, continent from capitals RIGHT OUTER JOIN continents on capitals.code = continents.code;
+
+  capital  |   continent
+-----------+---------------
+           | North America
+ Ottawa    | North America
+           | Europe
+           | Europe
+           | Asia
+ New Delhi | Asia
+           | Africa
+ Quito     | South America
+(8 rows)
+```
+
+## Question 10
+*(10 points)*
+
+*Notes 14A (2); Notes 14B (3-6)*
+
+Display only the capital city names for countries that do not appear in the <tt>continents</tt> table.
+```
+select capital, continent from capitals LEFT OUTER JOIN continents on capitals.code = continents.code 
+    WHERE continents.code is NULL;
+
+   capital   | continent
+-------------+-----------
+ Mexico City |
+ Tokyo       |
+(2 rows)
+```

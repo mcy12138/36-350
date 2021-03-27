@@ -1,0 +1,110 @@
+---
+title: "JOINing Two Tables"
+author: "36-350 -- Statistical Computing"
+date: "Week 14 -- Spring 2019"
+output: 
+  slidy_presentation: 
+    font_adjustment: -1
+---
+
+```{r,echo=FALSE}
+set.seed(101)
+```
+
+Foreign Keys
+===
+
+A foreign key is a(n) (collection of) column(s) in one table that <i>uniquely</i> specifies a row in another table. We specify foreign keys using the <tt>REFERENCES</tt> keyword when we define a column or table. Though it is not required to do so, it is most common for a foreign key to reference another table's primary key.
+
+Assume you have the following table:
+```
+create table countries ( country_code char(2) PRIMARY KEY, country_name text UNIQUE );
+```
+populated with
+```
+insert into countries values ('us','United States'), ('mx','Mexico');
+```
+
+We can then define another table, <tt>cities</tt>, that contains a foreign key referencing <tt>country_code</tt>:
+```
+create table cities (
+  name text NOT NULL,
+  postal_code varchar(9) CHECK (postal_code <> '') PRIMARY KEY,
+  country_code char(2) CHECK (country_code <> ''),
+  FOREIGN KEY (country_code) REFERENCES countries 
+);
+insert into cities values ('Pittsburgh','15213','us');
+insert into cities values ('Toronto','M4C185','ca');
+```
+The first insert will work, because the table countries contains the code <tt>us</tt>, while the second insert will fail (at least until information on Canada is inserted into <tt>countries</tt>).
+
+JOIN
+===
+
+The purpose of a <tt>JOIN</tt> is to allow a single <tt>SELECT</tt> command to access information in two tables. There are many flavors of joins: inner joins, left joins, full outer joins, set differences, etc.
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/joins.png){width=900px}</center>
+
+This just shows some of the possibilities. A query for set differences, for instance, might return all rows of Table A that are *not* in Table B.
+
+JOIN
+===
+
+We'll begin by demonstrating an <i>inner</i> join, which produces rows for which the columns in <b>both</b> tables match. (This is akin to performing a <tt>SELECT</tt> on the <i>intersection</i> of two tables.)
+```
+create table A (id SERIAL PRIMARY KEY, name text);
+insert into A (name) values ('Freeman'),('Greenhouse');
+create table B (id SERIAL PRIMARY KEY, name text);
+insert into B (name) values ('Tibshirani'),('Nugent'),('Freeman');
+select * from A JOIN B on A.name = B.name;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_innerjoin.png){width=300px}</center>
+
+Instead of displaying all columns, you can as a subset, and rename them with "AS":
+```
+select A.name as name_a,b.name as name_b from A JOIN B on A.name = B.name;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_innerjoin_as.png){width=200px}</center>
+
+JOIN
+===
+
+A <i>full outer join</i> produces rows for all columns in <b>both</b> tables. This is akin to performing a <tt>SELECT</tt> on the <i>union</i> of the two tables.
+
+```
+select A.name as name_a,B.name as name_b from A FULL OUTER JOIN B on A.name = B.name;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_outerjoin.png){width=200px}</center>
+
+A <i>left outer join</i> produces all rows for the first table (here: A), and any matching rows for the second table (here: B).
+
+```
+select * from A LEFT OUTER JOIN B on A.name = B.name;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_leftouterjoin.png){width=300px}</center>
+
+(Yes, there indeed is a <tt>RIGHT OUTER JOIN</tt> too.)
+
+JOIN
+===
+
+To select the set difference, e.g., all rows of A that are <b>not</b> in B, use a left or right outer join along with judicious <tt>WHERE</tt> clause:
+
+```
+select * from A LEFT OUTER JOIN B on A.name = B.name WHERE B.id IS NULL;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_setdiff.png){width=300px}</center>
+
+To select the symmetric difference, i.e., all rows of A not in B and vice-versa, use a full outer join along with a longer but still judicious <tt>WHERE</tt> clause:
+
+```
+select * from A FULL OUTER JOIN B on A.name = B.name WHERE B.id IS NULL OR A.id IS NULL;
+```
+
+<center>![](http://www.stat.cmu.edu/~pfreeman/sql_symdiff.png){width=300px}</center>
+
